@@ -1,41 +1,35 @@
 // server.js
-// Dependências: npm install express pg cors dotenv
 const express = require('express');
 const cors = require('cors');
-const { Pool } = require('pg');
+const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Conexão via parâmetros individuais (imune a erros de caracteres especiais na senha)
-const pool = new Pool({
-  host: process.env.DB_HOST || 'aws-0-sa-east-1.pooler.supabase.com',
-  port: parseInt(process.env.DB_PORT, 10) || 6543,
-  database: process.env.DB_NAME || 'postgres',
-  user: process.env.DB_USER || 'postgres.tzqjokydncchqhybljdb',
-  password: process.env.DB_PASSWORD,
-  ssl: { rejectUnauthorized: false }
-});
+// Conexão via HTTPS nativo usando as variáveis configuradas no Render
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Listar demandas ativas com dados da unidade
+// Listar demandas ativas
 app.get('/api/demandas', async (req, res) => {
   try {
-    const query = `
-      SELECT d.*, u.nome_fantasia as unidade_nome, u.cnes 
-      FROM demandas d
-      LEFT JOIN unidades_saude u ON d.unidade_id = u.id
-      ORDER BY 
-        CASE d.grau_risco 
-          WHEN 'Crítico' THEN 1 
-          WHEN 'Alto' THEN 2 
-          WHEN 'Médio' THEN 3 
-          ELSE 4 
-        END, d.prazo_fatal ASC;
-    `;
-    const { rows } = await pool.query(query);
-    res.json(rows);
+    const { data, error } = await supabase
+      .from('demandas')
+      .select('*, unidades_saude(nome_fantasia, cnes)')
+      .order('prazo_fatal', { ascending: true });
+
+    if (error) throw error;
+
+    const formatado = data.map(d => ({
+      ...d,
+      unidade_nome: d.unidades_saude?.nome_fantasia || 'Geral',
+      cnes: d.unidades_saude?.cnes || ''
+    }));
+
+    res.json(formatado);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -45,12 +39,23 @@ app.get('/api/demandas', async (req, res) => {
 app.post('/api/demandas', async (req, res) => {
   const { protocolo, origem, unidade_id, tipo_fiscalizacao, grau_risco, prazo_fatal, descricao, responsavel_atribuido, numero_sei } = req.body;
   try {
-    const query = `
-      INSERT INTO demandas (protocolo, origem, unidade_id, tipo_fiscalizacao, grau_risco, prazo_fatal, descricao, responsavel_atribuido, numero_sei)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *;
-    `;
-    const { rows } = await pool.query(query, [protocolo, origem, unidade_id, tipo_fiscalizacao, grau_risco, prazo_fatal, descricao, responsavel_atribuido, numero_sei]);
-    res.status(201).json(rows[0]);
+    const { data, error } = await supabase
+      .from('demandas')
+      .insert([{
+        protocolo,
+        origem,
+        unidade_id: unidade_id || null,
+        tipo_fiscalizacao,
+        grau_risco,
+        prazo_fatal,
+        descricao,
+        responsavel_atribuido,
+        numero_sei
+      }])
+      .select();
+
+    if (error) throw error;
+    res.status(201).json(data[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -61,8 +66,14 @@ app.patch('/api/demandas/:id/status', async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
   try {
-    const { rows } = await pool.query('UPDATE demandas SET status = $1 WHERE id = $2 RETURNING *', [status, id]);
-    res.json(rows[0]);
+    const { data, error } = await supabase
+      .from('demandas')
+      .update({ status })
+      .eq('id', id)
+      .select();
+
+    if (error) throw error;
+    res.json(data[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -71,19 +82,15 @@ app.patch('/api/demandas/:id/status', async (req, res) => {
 // Métricas de Painel (Dashboard)
 app.get('/api/dashboard/stats', async (req, res) => {
   try {
-    const countTotal = await pool.query('SELECT COUNT(*) FROM demandas');
-    const countCritico = await pool.query("SELECT COUNT(*) FROM demandas WHERE grau_risco = 'Crítico'");
-    const countConcluidas = await pool.query("SELECT COUNT(*) FROM demandas WHERE status = 'Concluída'");
-    
-    res.json({
-      total: countTotal.rows[0].count,
-      criticas: countCritico.rows[0].count,
-      concluidas: countConcluidas.rows[0].count
-    });
+    const { count: total } = await supabase.from('demandas').select('*', { count: 'exact', head: true });
+    const { count: criticas } = await supabase.from('demandas').select('*', { count: 'exact', head: true }).eq('grau_risco', 'Crítico');
+    const { count: concluidas } = await supabase.from('demandas').select('*', { count: 'exact', head: true }).eq('status', 'Concluída');
+
+    res.json({ total, criticas, concluidas });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`SIS-FISA API operando na porta ${PORT}`));
+app.listen(PORT, () => console.log(`SIS-FISA API pronta na porta ${PORT}`));
