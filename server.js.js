@@ -13,22 +13,48 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Listar demandas ativas de forma direta e segura
+// Listar demandas ativas com os dados da unidade vinculada
 app.get('/api/demandas', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('demandas')
-      .select('*')
+      .select('*, unidades_saude(nome_fantasia, cnes)')
       .order('prazo_fatal', { ascending: true });
 
     if (error) {
-      console.error('Erro Supabase GET:', error);
+      console.error('Erro Supabase GET /demandas:', error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    const formatado = (data || []).map(d => ({
+      ...d,
+      unidade_nome: d.unidades_saude?.nome_fantasia || 'Unidade Geral',
+      cnes: d.unidades_saude?.cnes || ''
+    }));
+
+    res.json(formatado);
+  } catch (err) {
+    console.error('Erro interno GET /demandas:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Listar todas as unidades de saúde para o campo de seleção
+app.get('/api/unidades', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('unidades_saude')
+      .select('id, nome_fantasia, cnes')
+      .order('nome_fantasia', { ascending: true });
+
+    if (error) {
+      console.error('Erro Supabase GET /unidades:', error);
       return res.status(500).json({ error: error.message });
     }
 
     res.json(data || []);
   } catch (err) {
-    console.error('Erro interno GET:', err);
+    console.error('Erro interno GET /unidades:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -37,7 +63,6 @@ app.get('/api/demandas', async (req, res) => {
 app.post('/api/demandas', async (req, res) => {
   const { protocolo, origem, unidade_id, tipo_fiscalizacao, grau_risco, prazo_fatal, descricao, responsavel_atribuido, numero_sei } = req.body;
   try {
-    // Monta o payload garantindo que campos vazios não quebrem o schema
     const payload = {
       protocolo: protocolo || 'SEM PROTOCOLO',
       origem: origem || 'Rotina da Subsecretaria',
@@ -48,26 +73,33 @@ app.post('/api/demandas', async (req, res) => {
       responsavel_atribuido: responsavel_atribuido || 'Comissão de Auditoria'
     };
 
-    // Só inclui unidade_id se for um UUID preenchido válido
-    if (unidade_id && unidade_id.trim() !== '') {
-      payload.unidade_id = unidade_id;
+    // Vincula a unidade se um UUID válido for fornecido
+    if (unidade_id && typeof unidade_id === 'string' && unidade_id.trim() !== '') {
+      payload.unidade_id = unidade_id.trim();
+    } else {
+      payload.unidade_id = null;
     }
 
-    if (numero_sei && numero_sei.trim() !== '') {
-      payload.numero_sei = numero_sei;
+    if (numero_sei && typeof numero_sei === 'string' && numero_sei.trim() !== '') {
+      payload.numero_sei = numero_sei.trim();
     }
 
     const { data, error } = await supabase
       .from('demandas')
       .insert([payload])
-      .select();
+      .select('*, unidades_saude(nome_fantasia, cnes)');
 
     if (error) {
       console.error('Erro detalhado no Supabase POST:', error);
       return res.status(500).json({ error: error.message });
     }
 
-    res.status(201).json(data[0]);
+    const item = data[0];
+    res.status(201).json({
+      ...item,
+      unidade_nome: item.unidades_saude?.nome_fantasia || 'Unidade Geral',
+      cnes: item.unidades_saude?.cnes || ''
+    });
   } catch (err) {
     console.error('Erro interno na API:', err);
     res.status(500).json({ error: err.message });
