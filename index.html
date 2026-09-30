@@ -122,19 +122,24 @@
                     x-text="d.status"></span>
                 </td>
                 <td class="p-4 text-center">
-                  <button @click="avancarStatus(d)" class="text-sky-600 hover:text-sky-800 text-xs font-semibold px-2 py-1 border border-sky-300 rounded hover:bg-sky-50 transition">
-                    Mudar Status
-                  </button>
-                
-                  <button 
-                  @click="excluirDemanda(d.id, d.protocolo)"
-                  class="text-xs bg-rose-900/40 hover:bg-rose-600 text-black hover:text-white px-2.5 py-1.5 rounded transition flex items-center gap-1"
-                  title="Excluir demanda">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  Excluir
-                  </button>
+                  <div class="flex items-center justify-center gap-1.5 flex-wrap">
+                    <!-- Botão Visualizar -->
+                    <button @click="visualizarDemanda(d)" class="text-slate-700 hover:text-sky-700 text-xs font-semibold px-2 py-1 border border-slate-300 rounded hover:bg-slate-100 transition flex items-center gap-1" title="Visualizar Detalhes">
+                      <i class="fa-regular fa-eye"></i> Visualizar
+                    </button>
+
+                    <!-- Botão Mudar Status -->
+                    <button @click="avancarStatus(d)" class="text-sky-600 hover:text-sky-800 text-xs font-semibold px-2 py-1 border border-sky-300 rounded hover:bg-sky-50 transition" title="Avançar Status">
+                      Mudar Status
+                    </button>
+                  
+                    <!-- Botão Excluir -->
+                    <button 
+                      @click="excluirDemanda(d.id, d.protocolo)"
+                      class="text-xs bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white border border-rose-200 px-2 py-1 rounded transition flex items-center gap-1"
+                      title="Excluir demanda">
+                      <i class="fa-regular fa-trash-can"></i> Excluir
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -150,6 +155,91 @@
         </table>
       </div>
     </section>
+
+    <!-- Modal de Visualização (Somente Leitura) -->
+    <div x-show="modalVisualizar" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak @keydown.escape.window="modalVisualizar = false">
+      <div class="bg-white rounded-xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]" @click.away="modalVisualizar = false">
+        
+        <!-- Topo do Modal -->
+        <div class="flex justify-between items-center border-b pb-3 mb-4">
+          <div class="flex items-center gap-2">
+            <span class="p-2 bg-sky-50 text-sky-700 rounded-lg"><i class="fa-solid fa-file-invoice text-lg"></i></span>
+            <div>
+              <span class="text-xs text-slate-500 uppercase tracking-wider font-semibold">Detalhamento da Demanda</span>
+              <h3 class="text-lg font-bold text-slate-800" x-text="demandaVisualizada?.protocolo"></h3>
+            </div>
+          </div>
+          <button @click="modalVisualizar = false" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+        </div>
+
+        <!-- Conteúdo dos Dados -->
+        <div class="overflow-y-auto space-y-4 text-sm pr-1 flex-1" x-if="demandaVisualizada">
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Origem do Pedido</span>
+              <span class="font-semibold text-slate-800" x-text="demandaVisualizada.origem || 'Não informada'"></span>
+            </div>
+            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Unidade de Saúde Alvo</span>
+              <span class="font-semibold text-slate-800" x-text="demandaVisualizada.unidade_nome || 'Unidade Geral'"></span>
+              <span class="text-xs text-slate-500 block" x-show="demandaVisualizada.cnes" x-text="'CNES: ' + demandaVisualizada.cnes"></span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Eixo Fiscalizado</span>
+              <span class="font-semibold text-slate-800" x-text="demandaVisualizada.tipo_fiscalizacao"></span>
+            </div>
+            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Grau de Risco</span>
+              <span class="font-bold"
+                :class="{
+                  'text-rose-600': demandaVisualizada.grau_risco === 'Crítico',
+                  'text-amber-600': demandaVisualizada.grau_risco === 'Alto',
+                  'text-blue-600': demandaVisualizada.grau_risco === 'Médio',
+                  'text-slate-600': demandaVisualizada.grau_risco === 'Baixo'
+                }"
+                x-text="demandaVisualizada.grau_risco"></span>
+            </div>
+            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Status Atual</span>
+              <span class="inline-block px-2 py-0.5 rounded text-xs font-bold"
+                :class="demandaVisualizada.status === 'Concluída' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'"
+                x-text="demandaVisualizada.status"></span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Prazo Limite / Fatal</span>
+              <span class="font-semibold font-mono text-slate-800" x-text="formatarData(demandaVisualizada.prazo_fatal)"></span>
+            </div>
+            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Responsável / Auditor</span>
+              <span class="font-semibold text-slate-800" x-text="demandaVisualizada.responsavel_atribuido || 'Não atribuído'"></span>
+            </div>
+          </div>
+
+          <div class="bg-slate-50 p-3.5 rounded-lg border border-slate-200">
+            <span class="text-xs text-slate-500 block mb-1 font-semibold">Descrição / Objeto da Fiscalização</span>
+            <div class="text-slate-700 bg-white p-3 rounded border border-slate-200 text-sm whitespace-pre-wrap leading-relaxed min-h-[80px]" x-text="demandaVisualizada.descricao || 'Nenhuma descrição detalhada informada.'"></div>
+          </div>
+
+        </div>
+
+        <!-- Rodapé do Modal -->
+        <div class="border-t pt-4 mt-4 flex justify-end">
+          <button type="button" @click="modalVisualizar = false" class="px-5 py-2 bg-slate-700 hover:bg-slate-800 text-white rounded-lg text-sm font-medium transition">
+            Fechar
+          </button>
+        </div>
+
+      </div>
+    </div>
 
     <!-- Modal de Cadastro / Edição -->
     <div x-show="abrirModal" class="fixed inset-0 bg-slate-900 bg-opacity-50 flex items-center justify-center p-4 z-50" x-cloak>
@@ -228,12 +318,13 @@
   </main>
 
   <script>
-    
     const API_URL = 'https://sisfisa-api.onrender.com';
 
     function fisaApp() {
       return {
         abrirModal: false,
+        modalVisualizar: false,
+        demandaVisualizada: null,
         carregando: false,
         salvando: false,
         erroConexao: null,
@@ -276,10 +367,14 @@
           this.abrirModal = true;
         },
 
+        visualizarDemanda(d) {
+          this.demandaVisualizada = d;
+          this.modalVisualizar = true;
+        },
+
         async salvarDemanda() {
           this.salvando = true;
           try {
-            // Nota: vincula à primeira unidade padrão se não houver ID selecionado
             const payload = {
               ...this.formDemanda,
               unidade_id: this.demandas[0]?.unidade_id || null
@@ -332,16 +427,13 @@
               throw new Error(err.error || 'Erro ao excluir');
             }
 
-           // Atualiza a lista na tela e os contadores
-           await this.carregarDemandas();
-           if (this.carregarMetricas) await this.carregarMetricas();
-    
-           alert(`Demanda ${protocolo} excluída com sucesso!`);
-         } catch (error) {
-           console.error('Erro na exclusão:', error);
-           alert('Erro ao excluir: ' + error.message);
-         }
-       },
+            await this.carregarDemandas();
+            alert(`Demanda ${protocolo} excluída com sucesso!`);
+          } catch (error) {
+            console.error('Erro na exclusão:', error);
+            alert('Erro ao excluir: ' + error.message);
+          }
+        },
 
         get demandasFiltradas() {
           if (!this.busca) return this.demandas;
