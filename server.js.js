@@ -13,7 +13,7 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Listar demandas ativas com o nome da unidade vinculada (sem CNES)
+// Listar demandas ativas com o nome da unidade vinculada
 app.get('/api/demandas', async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -38,12 +38,12 @@ app.get('/api/demandas', async (req, res) => {
   }
 });
 
-// Listar todas as unidades de saúde (sem CNES)
+// Listar todas as unidades de saúde (apenas nome e tipo)
 app.get('/api/unidades', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('unidades_saude')
-      .select('id, nome_fantasia, tipo_unidade, bairro')
+      .select('id, nome_fantasia, tipo_unidade')
       .order('nome_fantasia', { ascending: true });
 
     if (error) {
@@ -58,9 +58,9 @@ app.get('/api/unidades', async (req, res) => {
   }
 });
 
-// Cadastrar nova unidade de saúde (sem CNES)
+// Cadastrar nova unidade de saúde (apenas nome fantasia e tipo)
 app.post('/api/unidades', async (req, res) => {
-  const { nome_fantasia, tipo_unidade, bairro } = req.body;
+  const { nome_fantasia, tipo_unidade } = req.body;
   try {
     if (!nome_fantasia || typeof nome_fantasia !== 'string' || nome_fantasia.trim() === '') {
       return res.status(400).json({ error: 'O nome fantasia da unidade é obrigatório.' });
@@ -68,8 +68,7 @@ app.post('/api/unidades', async (req, res) => {
 
     const payload = {
       nome_fantasia: nome_fantasia.trim(),
-      tipo_unidade: tipo_unidade || 'Atenção Básica (ESF/UBS)',
-      bairro: bairro && typeof bairro === 'string' && bairro.trim() !== '' ? bairro.trim() : null
+      tipo_unidade: tipo_unidade || 'Atenção Básica (ESF/UBS)'
     };
 
     const { data, error } = await supabase
