@@ -39,13 +39,13 @@ app.get('/api/demandas', async (req, res) => {
 
 // Cadastrar nova demanda
 app.post('/api/demandas', async (req, res) => {
-  const { protocolo, origem, unidade_id, tipo_fiscalizacao, grau_risco, prazo_fatal, descricao, responsavel_atribuido } = req.body;
+  const { protocolo, origem, unidade_id, tipo_fiscalizacao, grau_risco, prazo_fatal, descricao, responsavel_atribuido, numero_sei } = req.body;
   try {
     const query = `
-      INSERT INTO demandas (protocolo, origem, unidade_id, tipo_fiscalizacao, grau_risco, prazo_fatal, descricao, responsavel_atribuido)
+      INSERT INTO demandas (protocolo, origem, unidade_id, tipo_fiscalizacao, grau_risco, prazo_fatal, descricao, responsavel_atribuido, numero_sei)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *;
     `;
-    const { rows } = await pool.query(query, [protocolo, origem, unidade_id, tipo_fiscalizacao, grau_risco, prazo_fatal, descricao, responsavel_atribuido]);
+    const { rows } = await pool.query(query, [protocolo, origem, unidade_id, tipo_fiscalizacao, grau_risco, prazo_fatal, descricao, responsavel_atribuido, numero_sei]);
     res.status(201).json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
