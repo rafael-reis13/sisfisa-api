@@ -125,6 +125,16 @@
                   <button @click="avancarStatus(d)" class="text-sky-600 hover:text-sky-800 text-xs font-semibold px-2 py-1 border border-sky-300 rounded hover:bg-sky-50 transition">
                     Mudar Status
                   </button>
+                  <button 
+                  @click="excluirDemanda(demanda.id, demanda.protocolo)"
+                  class="text-xs bg-rose-900/40 hover:bg-rose-600 text-rose-300 hover:text-white px-2.5 py-1.5 rounded transition flex items-center gap-1"
+                  title="Excluir demanda">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Excluir
+                  </button>
+                  </div>
                 </td>
               </tr>
             </template>
@@ -158,6 +168,12 @@
                 <option>Ouvidoria do SUS</option>
                 <option>Denúncia Cidadã</option>
                 <option>Rotina da Subsecretaria</option>
+                <option>Secretaria de Saúde</option>
+                <option>Comissão de Fiscalização</option>
+                <option>Farmácia Judicial</option>
+                <option>Organização Social</option>
+                <option>Manutenção Predial</option>
+                <option>Outros</option>
               </select>
             </div>
           </div>
@@ -173,6 +189,8 @@
                 <option>Financeira/Contábil</option>
                 <option>Sanitária</option>
                 <option>Farmacêutica</option>
+                <option>Jurídica</option>
+                <option>Outros</option>
               </select>
             </div>
             <div>
