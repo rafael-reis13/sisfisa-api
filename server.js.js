@@ -92,6 +92,28 @@ app.patch('/api/demandas/:id/status', async (req, res) => {
   }
 });
 
+// Excluir demanda por ID
+app.delete('/api/demandas/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { data, error } = await supabase
+      .from('demandas')
+      .delete()
+      .eq('id', id)
+      .select();
+
+    if (error) {
+      console.error('Erro ao excluir no Supabase:', error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ message: 'Demanda excluída com sucesso', deletado: data });
+  } catch (err) {
+    console.error('Erro interno ao excluir:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Métricas de Painel (Dashboard)
 app.get('/api/dashboard/stats', async (req, res) => {
   try {
