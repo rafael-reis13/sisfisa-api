@@ -33,33 +33,43 @@ app.get('/api/demandas', async (req, res) => {
   }
 });
 
-// Cadastrar nova demanda
+// Cadastrar nova demanda (com tratamento seguro de campos opcionais)
 app.post('/api/demandas', async (req, res) => {
   const { protocolo, origem, unidade_id, tipo_fiscalizacao, grau_risco, prazo_fatal, descricao, responsavel_atribuido, numero_sei } = req.body;
   try {
+    // Monta o payload garantindo que campos vazios não quebrem o schema
+    const payload = {
+      protocolo: protocolo || 'SEM PROTOCOLO',
+      origem: origem || 'Rotina da Subsecretaria',
+      tipo_fiscalizacao: tipo_fiscalizacao || 'Assistencial',
+      grau_risco: grau_risco || 'Médio',
+      prazo_fatal: prazo_fatal || null,
+      descricao: descricao || '',
+      responsavel_atribuido: responsavel_atribuido || 'Comissão de Auditoria'
+    };
+
+    // Só inclui unidade_id se for um UUID preenchido válido
+    if (unidade_id && unidade_id.trim() !== '') {
+      payload.unidade_id = unidade_id;
+    }
+
+    if (numero_sei && numero_sei.trim() !== '') {
+      payload.numero_sei = numero_sei;
+    }
+
     const { data, error } = await supabase
       .from('demandas')
-      .insert([{
-        protocolo,
-        origem,
-        unidade_id: unidade_id || null,
-        tipo_fiscalizacao,
-        grau_risco,
-        prazo_fatal,
-        descricao,
-        responsavel_atribuido,
-        numero_sei
-      }])
+      .insert([payload])
       .select();
 
     if (error) {
-      console.error('Erro Supabase POST:', error);
+      console.error('Erro detalhado no Supabase POST:', error);
       return res.status(500).json({ error: error.message });
     }
 
     res.status(201).json(data[0]);
   } catch (err) {
-    console.error('Erro interno POST:', err);
+    console.error('Erro interno na API:', err);
     res.status(500).json({ error: err.message });
   }
 });
