@@ -13,12 +13,12 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Listar demandas ativas com os dados da unidade vinculada
+// Listar demandas ativas com o nome da unidade vinculada (sem CNES)
 app.get('/api/demandas', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('demandas')
-      .select('*, unidades_saude(nome_fantasia, cnes)')
+      .select('*, unidades_saude(nome_fantasia)')
       .order('prazo_fatal', { ascending: true });
 
     if (error) {
@@ -28,8 +28,7 @@ app.get('/api/demandas', async (req, res) => {
 
     const formatado = (data || []).map(d => ({
       ...d,
-      unidade_nome: d.unidades_saude?.nome_fantasia || 'Unidade Geral',
-      cnes: d.unidades_saude?.cnes || ''
+      unidade_nome: d.unidades_saude?.nome_fantasia || 'Unidade Geral'
     }));
 
     res.json(formatado);
@@ -39,12 +38,12 @@ app.get('/api/demandas', async (req, res) => {
   }
 });
 
-// Listar todas as unidades de saúde para o campo de seleção
+// Listar todas as unidades de saúde (sem CNES)
 app.get('/api/unidades', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('unidades_saude')
-      .select('id, nome_fantasia, cnes, tipo_unidade, bairro')
+      .select('id, nome_fantasia, tipo_unidade, bairro')
       .order('nome_fantasia', { ascending: true });
 
     if (error) {
@@ -59,9 +58,9 @@ app.get('/api/unidades', async (req, res) => {
   }
 });
 
-// Cadastrar nova unidade de saúde
+// Cadastrar nova unidade de saúde (sem CNES)
 app.post('/api/unidades', async (req, res) => {
-  const { nome_fantasia, cnes, tipo_unidade, bairro } = req.body;
+  const { nome_fantasia, tipo_unidade, bairro } = req.body;
   try {
     if (!nome_fantasia || typeof nome_fantasia !== 'string' || nome_fantasia.trim() === '') {
       return res.status(400).json({ error: 'O nome fantasia da unidade é obrigatório.' });
@@ -69,7 +68,6 @@ app.post('/api/unidades', async (req, res) => {
 
     const payload = {
       nome_fantasia: nome_fantasia.trim(),
-      cnes: cnes && typeof cnes === 'string' && cnes.trim() !== '' ? cnes.trim() : null,
       tipo_unidade: tipo_unidade || 'Atenção Básica (ESF/UBS)',
       bairro: bairro && typeof bairro === 'string' && bairro.trim() !== '' ? bairro.trim() : null
     };
@@ -105,7 +103,6 @@ app.post('/api/demandas', async (req, res) => {
       responsavel_atribuido: responsavel_atribuido || 'Comissão de Auditoria'
     };
 
-    // Vincula a unidade se um UUID válido for fornecido
     if (unidade_id && typeof unidade_id === 'string' && unidade_id.trim() !== '') {
       payload.unidade_id = unidade_id.trim();
     } else {
@@ -119,7 +116,7 @@ app.post('/api/demandas', async (req, res) => {
     const { data, error } = await supabase
       .from('demandas')
       .insert([payload])
-      .select('*, unidades_saude(nome_fantasia, cnes)');
+      .select('*, unidades_saude(nome_fantasia)');
 
     if (error) {
       console.error('Erro detalhado no Supabase POST /demandas:', error);
@@ -129,8 +126,7 @@ app.post('/api/demandas', async (req, res) => {
     const item = data[0];
     res.status(201).json({
       ...item,
-      unidade_nome: item.unidades_saude?.nome_fantasia || 'Unidade Geral',
-      cnes: item.unidades_saude?.cnes || ''
+      unidade_nome: item.unidades_saude?.nome_fantasia || 'Unidade Geral'
     });
   } catch (err) {
     console.error('Erro interno na API POST /demandas:', err);
