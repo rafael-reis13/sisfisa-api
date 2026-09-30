@@ -44,7 +44,7 @@ app.get('/api/unidades', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('unidades_saude')
-      .select('id, nome_fantasia, cnes')
+      .select('id, nome_fantasia, cnes, tipo_unidade, bairro')
       .order('nome_fantasia', { ascending: true });
 
     if (error) {
@@ -55,6 +55,38 @@ app.get('/api/unidades', async (req, res) => {
     res.json(data || []);
   } catch (err) {
     console.error('Erro interno GET /unidades:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Cadastrar nova unidade de saúde
+app.post('/api/unidades', async (req, res) => {
+  const { nome_fantasia, cnes, tipo_unidade, bairro } = req.body;
+  try {
+    if (!nome_fantasia || typeof nome_fantasia !== 'string' || nome_fantasia.trim() === '') {
+      return res.status(400).json({ error: 'O nome fantasia da unidade é obrigatório.' });
+    }
+
+    const payload = {
+      nome_fantasia: nome_fantasia.trim(),
+      cnes: cnes && typeof cnes === 'string' && cnes.trim() !== '' ? cnes.trim() : null,
+      tipo_unidade: tipo_unidade || 'Atenção Básica (ESF/UBS)',
+      bairro: bairro && typeof bairro === 'string' && bairro.trim() !== '' ? bairro.trim() : null
+    };
+
+    const { data, error } = await supabase
+      .from('unidades_saude')
+      .insert([payload])
+      .select();
+
+    if (error) {
+      console.error('Erro detalhado no Supabase POST /unidades:', error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.status(201).json(data[0]);
+  } catch (err) {
+    console.error('Erro interno na API POST /unidades:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -90,7 +122,7 @@ app.post('/api/demandas', async (req, res) => {
       .select('*, unidades_saude(nome_fantasia, cnes)');
 
     if (error) {
-      console.error('Erro detalhado no Supabase POST:', error);
+      console.error('Erro detalhado no Supabase POST /demandas:', error);
       return res.status(500).json({ error: error.message });
     }
 
@@ -101,7 +133,7 @@ app.post('/api/demandas', async (req, res) => {
       cnes: item.unidades_saude?.cnes || ''
     });
   } catch (err) {
-    console.error('Erro interno na API:', err);
+    console.error('Erro interno na API POST /demandas:', err);
     res.status(500).json({ error: err.message });
   }
 });
