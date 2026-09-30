@@ -13,24 +13,22 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Listar demandas ativas
+// Listar demandas ativas de forma direta e segura
 app.get('/api/demandas', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('demandas')
-      .select('*, unidades_saude(nome_fantasia, cnes)')
+      .select('*')
       .order('prazo_fatal', { ascending: true });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Erro Supabase GET:', error);
+      return res.status(500).json({ error: error.message });
+    }
 
-    const formatado = data.map(d => ({
-      ...d,
-      unidade_nome: d.unidades_saude?.nome_fantasia || 'Geral',
-      cnes: d.unidades_saude?.cnes || ''
-    }));
-
-    res.json(formatado);
+    res.json(data || []);
   } catch (err) {
+    console.error('Erro interno GET:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -54,9 +52,14 @@ app.post('/api/demandas', async (req, res) => {
       }])
       .select();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Erro Supabase POST:', error);
+      return res.status(500).json({ error: error.message });
+    }
+
     res.status(201).json(data[0]);
   } catch (err) {
+    console.error('Erro interno POST:', err);
     res.status(500).json({ error: err.message });
   }
 });
