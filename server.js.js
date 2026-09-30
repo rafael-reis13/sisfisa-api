@@ -58,7 +58,7 @@ app.get('/api/unidades', async (req, res) => {
   }
 });
 
-// Cadastrar nova unidade de saúde (apenas nome fantasia e tipo)
+// Cadastrar nova unidade de saúde (com cnes automático para satisfazer a regra NOT NULL)
 app.post('/api/unidades', async (req, res) => {
   const { nome_fantasia, tipo_unidade } = req.body;
   try {
@@ -68,7 +68,8 @@ app.post('/api/unidades', async (req, res) => {
 
     const payload = {
       nome_fantasia: nome_fantasia.trim(),
-      tipo_unidade: tipo_unidade || 'Atenção Básica (ESF/UBS)'
+      tipo_unidade: tipo_unidade || 'Atenção Básica (ESF/UBS)',
+      cnes: 'N/A' // Contorna a restrição NOT NULL da coluna na base de dados
     };
 
     const { data, error } = await supabase
