@@ -58,7 +58,7 @@ app.get('/api/unidades', async (req, res) => {
   }
 });
 
-// Cadastrar nova unidade de saúde (com valores padrão para contornar restrições NOT NULL)
+// Cadastrar nova unidade de saúde (apenas com as colunas reais da tabela)
 app.post('/api/unidades', async (req, res) => {
   const { nome_fantasia, tipo_unidade } = req.body;
   try {
@@ -70,7 +70,6 @@ app.post('/api/unidades', async (req, res) => {
       nome_fantasia: nome_fantasia.trim(),
       tipo_unidade: tipo_unidade || 'Atenção Básica (ESF/UBS)',
       cnes: 'N/A',
-      bairro: 'Não informado',
       tipo_gestao: 'Administração Direta'
     };
 
