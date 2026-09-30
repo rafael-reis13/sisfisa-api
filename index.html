@@ -317,6 +317,31 @@
           }
         },
 
+        async excluirDemanda(id, protocolo) {
+          const confirmacao = confirm(`Deseja realmente excluir permanentemente a demanda ${protocolo}?`);
+          if (!confirmacao) return;
+
+          try {
+            const res = await fetch(`${API_URL}/api/demandas/${id}`, {
+              method: 'DELETE'
+            });
+
+            if (!res.ok) {
+              const err = await res.json();
+              throw new Error(err.error || 'Erro ao excluir');
+            }
+
+           // Atualiza a lista na tela e os contadores
+           await this.carregarDemandas();
+           if (this.carregarMetricas) await this.carregarMetricas();
+    
+           alert(`Demanda ${protocolo} excluída com sucesso!`);
+         } catch (error) {
+           console.error('Erro na exclusão:', error);
+           alert('Erro ao excluir: ' + error.message);
+         }
+       },
+
         get demandasFiltradas() {
           if (!this.busca) return this.demandas;
           return this.demandas.filter(d => 
