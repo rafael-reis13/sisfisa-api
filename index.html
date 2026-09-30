@@ -115,7 +115,15 @@
                       'bg-slate-100 text-slate-600': d.grau_risco === 'Baixo'
                     }" x-text="d.grau_risco"></span>
                 </td>
-                <td class="p-4 font-mono text-slate-600" x-text="formatarData(d.prazo_fatal)"></td>
+                
+                <!-- Prazo Limite com Destaque de Cor (Vermelho se vencido / Verde se no prazo) -->
+                <td class="p-4 font-mono text-xs">
+                  <span class="px-2 py-1 rounded font-semibold inline-block"
+                    :class="estaVencido(d.prazo_fatal, d.status) ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'"
+                    x-text="formatarData(d.prazo_fatal)">
+                  </span>
+                </td>
+
                 <td class="p-4">
                   <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
                     :class="d.status === 'Concluída' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'"
@@ -216,7 +224,10 @@
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
               <span class="text-xs text-slate-500 block mb-0.5 font-medium">Prazo Limite / Fatal</span>
-              <span class="font-semibold font-mono text-slate-800" x-text="formatarData(demandaVisualizada.prazo_fatal)"></span>
+              <span class="font-semibold font-mono text-xs px-2 py-0.5 rounded inline-block"
+                :class="estaVencido(demandaVisualizada.prazo_fatal, demandaVisualizada.status) ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'"
+                x-text="formatarData(demandaVisualizada.prazo_fatal)">
+              </span>
             </div>
             <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
               <span class="text-xs text-slate-500 block mb-0.5 font-medium">Responsável / Auditor</span>
@@ -448,6 +459,21 @@
           if (!dataIso) return '-';
           const [ano, mes, dia] = dataIso.substring(0, 10).split('-');
           return `${dia}/${mes}/${ano}`;
+        },
+
+        estaVencido(dataIso, status) {
+          if (!dataIso) return false;
+          // Se já foi finalizada, não fica em alerta de vencida
+          if (status === 'Concluída') return false;
+
+          const hoje = new Date();
+          hoje.setHours(0, 0, 0, 0);
+
+          const [ano, mes, dia] = dataIso.substring(0, 10).split('-');
+          const prazo = new Date(Number(ano), Number(mes) - 1, Number(dia));
+          prazo.setHours(0, 0, 0, 0);
+
+          return prazo < hoje;
         }
       }
     }
