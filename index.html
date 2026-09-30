@@ -23,9 +23,14 @@
           <p class="text-xs text-sky-200 uppercase tracking-wider">Subsecretaria de Fiscalização e Avaliação da Saúde</p>
         </div>
       </div>
-      <button @click="abrirNovoModal()" class="bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center transition shadow">
-        <i class="fa-solid fa-plus mr-2"></i> Nova Demanda
-      </button>
+      <div class="flex items-center gap-2">
+        <button @click="abrirModalNovaUnidade()" class="bg-sky-800 hover:bg-sky-700 border border-sky-600 text-white px-3.5 py-2 rounded-lg font-medium text-sm flex items-center transition shadow">
+          <i class="fa-solid fa-hospital mr-2"></i> Nova Unidade
+        </button>
+        <button @click="abrirNovoModal()" class="bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center transition shadow">
+          <i class="fa-solid fa-plus mr-2"></i> Nova Demanda
+        </button>
+      </div>
     </div>
   </header>
 
@@ -115,15 +120,12 @@
                       'bg-slate-100 text-slate-600': d.grau_risco === 'Baixo'
                     }" x-text="d.grau_risco"></span>
                 </td>
-                
-                <!-- Prazo com destaque de cor -->
                 <td class="p-4 font-mono text-xs">
                   <span class="px-2 py-1 rounded font-semibold inline-block"
                     :class="estaVencido(d.prazo_fatal, d.status) ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'"
                     x-text="formatarData(d.prazo_fatal)">
                   </span>
                 </td>
-
                 <td class="p-4">
                   <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
                     :class="d.status === 'Concluída' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'"
@@ -131,21 +133,13 @@
                 </td>
                 <td class="p-4 text-center">
                   <div class="flex items-center justify-center gap-1.5 flex-wrap">
-                    <!-- Botão Visualizar -->
                     <button @click="visualizarDemanda(d)" class="text-slate-700 hover:text-sky-700 text-xs font-semibold px-2 py-1 border border-slate-300 rounded hover:bg-slate-100 transition flex items-center gap-1" title="Visualizar Detalhes">
                       <i class="fa-regular fa-eye"></i> Visualizar
                     </button>
-
-                    <!-- Botão Mudar Status -->
                     <button @click="avancarStatus(d)" class="text-sky-600 hover:text-sky-800 text-xs font-semibold px-2 py-1 border border-sky-300 rounded hover:bg-sky-50 transition" title="Avançar Status">
                       Mudar Status
                     </button>
-                  
-                    <!-- Botão Excluir -->
-                    <button 
-                      @click="excluirDemanda(d.id, d.protocolo)"
-                      class="text-xs bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white border border-rose-200 px-2 py-1 rounded transition flex items-center gap-1"
-                      title="Excluir demanda">
+                    <button @click="excluirDemanda(d.id, d.protocolo)" class="text-xs bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white border border-rose-200 px-2 py-1 rounded transition flex items-center gap-1" title="Excluir demanda">
                       <i class="fa-regular fa-trash-can"></i> Excluir
                     </button>
                   </div>
@@ -167,7 +161,6 @@
     <!-- Modal de Visualização (Somente Leitura) -->
     <div x-show="modalVisualizar" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak @keydown.escape.window="modalVisualizar = false">
       <div class="bg-white rounded-xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]" @click.away="modalVisualizar = false">
-        
         <div class="flex justify-between items-center border-b pb-3 mb-4">
           <div class="flex items-center gap-2">
             <span class="p-2 bg-sky-50 text-sky-700 rounded-lg"><i class="fa-solid fa-file-invoice text-lg"></i></span>
@@ -246,7 +239,7 @@
       </div>
     </div>
 
-    <!-- Modal de Cadastro com Seleção de Unidade Alvo -->
+    <!-- Modal de Cadastro de Demanda -->
     <div x-show="abrirModal" class="fixed inset-0 bg-slate-900 bg-opacity-50 flex items-center justify-center p-4 z-50" x-cloak>
       <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-xl" @click.away="abrirModal = false">
         <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Cadastrar Demanda no Banco de Dados</h3>
@@ -275,9 +268,14 @@
             </div>
           </div>
 
-          <!-- SELEÇÃO DA UNIDADE ALVO -->
+          <!-- Unidade Alvo com atalho para adicionar nova unidade -->
           <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Unidade de Saúde Alvo</label>
+            <div class="flex justify-between items-center mb-1">
+              <label class="block text-xs font-medium text-slate-600">Unidade de Saúde Alvo</label>
+              <button type="button" @click="abrirModalNovaUnidade()" class="text-xs text-sky-600 hover:text-sky-800 font-semibold flex items-center gap-1">
+                <i class="fa-solid fa-plus-circle"></i> Cadastrar Nova Unidade
+              </button>
+            </div>
             <select x-model="formDemanda.unidade_id" class="w-full border rounded px-3 py-1.5 text-sm bg-white">
               <option value="">Geral / Subsecretaria / Sem unidade vinculada</option>
               <template x-for="u in unidades" :key="u.id">
@@ -336,6 +334,58 @@
       </div>
     </div>
 
+    <!-- NOVO MODAL: Cadastro de Unidade de Saúde -->
+    <div x-show="abrirModalUnidade" class="fixed inset-0 bg-slate-900 bg-opacity-50 flex items-center justify-center p-4 z-50" x-cloak>
+      <div class="bg-white rounded-xl max-w-md w-full p-6 shadow-xl border border-slate-200" @click.away="abrirModalUnidade = false">
+        <div class="flex justify-between items-center border-b pb-3 mb-4">
+          <div class="flex items-center gap-2">
+            <span class="p-2 bg-sky-100 text-sky-800 rounded-lg"><i class="fa-solid fa-hospital"></i></span>
+            <h3 class="text-base font-bold text-slate-800">Cadastrar Nova Unidade</h3>
+          </div>
+          <button @click="abrirModalUnidade = false" class="text-slate-400 hover:text-slate-600">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <form @submit.prevent="salvarUnidade" class="space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Nome Fantasia da Unidade *</label>
+            <input type="text" x-model="formUnidade.nome_fantasia" required placeholder="Ex: ESF Barra Nova ou Hospital Municipal" class="w-full border rounded px-3 py-1.5 text-sm">
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">CNES (Código SUS)</label>
+              <input type="text" x-model="formUnidade.cnes" placeholder="Ex: 2384721" class="w-full border rounded px-3 py-1.5 text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Tipo de Unidade</label>
+              <select x-model="formUnidade.tipo_unidade" class="w-full border rounded px-3 py-1.5 text-sm">
+                <option>Atenção Básica (ESF/UBS)</option>
+                <option>Urgência/Emergência (UPA/PA)</option>
+                <option>Hospitalar</option>
+                <option>Especializada (Policlínica/CEO)</option>
+                <option>Administrativa/Almoxarifado</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Bairro / Localidade</label>
+            <input type="text" x-model="formUnidade.bairro" placeholder="Ex: Centro, Bacaxá, Jaconé..." class="w-full border rounded px-3 py-1.5 text-sm">
+          </div>
+
+          <div class="flex justify-end gap-2 pt-4 border-t">
+            <button type="button" @click="abrirModalUnidade = false" class="px-4 py-2 border rounded-lg text-sm text-slate-600 hover:bg-slate-50">Cancelar</button>
+            <button type="submit" :disabled="salvandoUnidade" class="px-4 py-2 bg-sky-800 text-white rounded-lg text-sm font-semibold hover:bg-sky-700 flex items-center">
+              <span x-show="!salvandoUnidade">Salvar Unidade</span>
+              <span x-show="salvandoUnidade"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
   </main>
 
   <script>
@@ -344,14 +394,17 @@
     function fisaApp() {
       return {
         abrirModal: false,
+        abrirModalUnidade: false,
         modalVisualizar: false,
         demandaVisualizada: null,
         carregando: false,
         salvando: false,
+        salvandoUnidade: false,
         erroConexao: null,
         busca: '',
         demandas: [],
         unidades: [],
+        
         formDemanda: {
           protocolo: '',
           origem: 'Ministério Público',
@@ -361,6 +414,13 @@
           prazo_fatal: '',
           descricao: '',
           responsavel_atribuido: ''
+        },
+
+        formUnidade: {
+          nome_fantasia: '',
+          cnes: '',
+          tipo_unidade: 'Atenção Básica (ESF/UBS)',
+          bairro: ''
         },
 
         async iniciarApp() {
@@ -386,30 +446,13 @@
 
         async carregarUnidades() {
           try {
-            // Tenta buscar endpoint dedicado se existir, senão extrai das próprias demandas existentes
             const res = await fetch(`${API_URL}/api/unidades`);
             if (res.ok) {
               this.unidades = await res.json();
-            } else {
-              this.extrairUnidadesDasDemandas();
             }
           } catch (e) {
-            this.extrairUnidadesDasDemandas();
+            console.error('Erro ao buscar unidades:', e);
           }
-        },
-
-        extrairUnidadesDasDemandas() {
-          const mapa = new Map();
-          this.demandas.forEach(d => {
-            if (d.unidade_id && d.unidade_nome && !mapa.has(d.unidade_id)) {
-              mapa.set(d.unidade_id, {
-                id: d.unidade_id,
-                nome_fantasia: d.unidade_nome,
-                cnes: d.cnes || ''
-              });
-            }
-          });
-          this.unidades = Array.from(mapa.values());
         },
 
         abrirNovoModal() {
@@ -424,6 +467,44 @@
             responsavel_atribuido: ''
           };
           this.abrirModal = true;
+        },
+
+        abrirModalNovaUnidade() {
+          this.formUnidade = {
+            nome_fantasia: '',
+            cnes: '',
+            tipo_unidade: 'Atenção Básica (ESF/UBS)',
+            bairro: ''
+          };
+          this.abrirModalUnidade = true;
+        },
+
+        async salvarUnidade() {
+          this.salvandoUnidade = true;
+          try {
+            const res = await fetch(`${API_URL}/api/unidades`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.formUnidade)
+            });
+
+            if (!res.ok) {
+              const err = await res.json();
+              throw new Error(err.error || 'Falha ao salvar unidade.');
+            }
+
+            const novaUnidade = await res.json();
+            await this.carregarUnidades();
+            
+            // Já seleciona a unidade recém-criada no formulário de demandas
+            this.formDemanda.unidade_id = novaUnidade.id;
+            this.abrirModalUnidade = false;
+            alert(`Unidade "${novaUnidade.nome_fantasia}" cadastrada com sucesso!`);
+          } catch (err) {
+            alert('Erro ao cadastrar unidade: ' + err.message);
+          } finally {
+            this.salvandoUnidade = false;
+          }
         },
 
         visualizarDemanda(d) {
