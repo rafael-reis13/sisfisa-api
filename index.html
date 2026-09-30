@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIS-FISA | Subsecretaria de Fiscalização e Avaliação da Saúde</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <style>
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800" x-data="fisaApp()" x-init="carregarDemandas()">
+
+  <!-- Cabeçalho -->
+  <header class="bg-sky-900 text-white shadow-md">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-3">
+      <div class="flex items-center space-x-3">
+        <i class="fa-solid fa-notes-medical text-3xl text-sky-400"></i>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight">SIS-FISA</h1>
+          <p class="text-xs text-sky-200 uppercase tracking-wider">Subsecretaria de Fiscalização e Avaliação da Saúde</p>
+        </div>
+      </div>
+      <button @click="abrirNovoModal()" class="bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center transition shadow">
+        <i class="fa-solid fa-plus mr-2"></i> Nova Demanda
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-8">
+    
+    <!-- Alerta de Conexão -->
+    <div x-show="erroConexao" x-cloak class="mb-6 p-4 bg-rose-50 border-l-4 border-rose-500 text-rose-700 text-sm rounded flex items-center justify-between">
+      <div class="flex items-center">
+        <i class="fa-solid fa-circle-exclamation mr-3 text-lg"></i>
+        <span x-text="erroConexao"></span>
+      </div>
+      <button @click="carregarDemandas()" class="underline font-bold text-xs">Tentar novamente</button>
+    </div>
+
+    <!-- Indicadores Rápidos -->
+    <section class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+        <div>
+          <span class="text-xs font-semibold text-slate-500 uppercase">Processos Ativos</span>
+          <p class="text-2xl font-bold text-slate-800" x-text="demandas.length"></p>
+        </div>
+        <div class="p-3 bg-blue-50 text-blue-600 rounded-lg"><i class="fa-solid fa-folder-open text-xl"></i></div>
+      </div>
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+        <div>
+          <span class="text-xs font-semibold text-rose-500 uppercase">Risco Crítico / MP</span>
+          <p class="text-2xl font-bold text-rose-600" x-text="demandas.filter(d => d.grau_risco === 'Crítico').length"></p>
+        </div>
+        <div class="p-3 bg-rose-50 text-rose-600 rounded-lg"><i class="fa-solid fa-triangle-exclamation text-xl"></i></div>
+      </div>
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+        <div>
+          <span class="text-xs font-semibold text-emerald-500 uppercase">Fiscalizações Concluídas</span>
+          <p class="text-2xl font-bold text-emerald-600" x-text="demandas.filter(d => d.status === 'Concluída').length"></p>
+        </div>
+        <div class="p-3 bg-emerald-50 text-emerald-600 rounded-lg"><i class="fa-solid fa-circle-check text-xl"></i></div>
+      </div>
+    </section>
+
+    <!-- Tabela Principal -->
+    <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <h2 class="font-bold text-lg text-slate-800">Mapa Operacional de Fiscalizações</h2>
+        <input type="text" x-model="busca" placeholder="Filtrar demandas..." class="w-full sm:w-80 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500">
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-sm">
+          <thead>
+            <tr class="bg-slate-50 text-slate-600 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
+              <th class="p-4">Protocolo / Origem</th>
+              <th class="p-4">Unidade Alvo</th>
+              <th class="p-4">Eixo Fiscalizado</th>
+              <th class="p-4">Risco</th>
+              <th class="p-4">Prazo Limite</th>
+              <th class="p-4">Status</th>
+              <th class="p-4 text-center">Ações</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <template x-if="carregando">
+              <tr>
+                <td colspan="7" class="p-8 text-center text-slate-500">
+                  <i class="fa-solid fa-spinner fa-spin mr-2"></i> Carregando registros do banco de dados...
+                </td>
+              </tr>
+            </template>
+            <template x-for="d in demandasFiltradas" :key="d.id">
+              <tr class="hover:bg-slate-50 transition">
+                <td class="p-4">
+                  <div class="font-bold text-slate-800" x-text="d.protocolo"></div>
+                  <span class="text-xs text-slate-500" x-text="d.origem"></span>
+                </td>
+                <td class="p-4">
+                  <div class="font-medium text-slate-700" x-text="d.unidade_nome || 'Unidade Geral'"></div>
+                  <span class="text-xs text-slate-400" x-text="d.cnes ? 'CNES: ' + d.cnes : ''"></span>
+                </td>
+                <td class="p-4">
+                  <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200" x-text="d.tipo_fiscalizacao"></span>
+                </td>
+                <td class="p-4">
+                  <span class="px-2 py-1 rounded text-xs font-bold"
+                    :class="{
+                      'bg-rose-100 text-rose-700': d.grau_risco === 'Crítico',
+                      'bg-amber-100 text-amber-700': d.grau_risco === 'Alto',
+                      'bg-blue-100 text-blue-700': d.grau_risco === 'Médio',
+                      'bg-slate-100 text-slate-600': d.grau_risco === 'Baixo'
+                    }" x-text="d.grau_risco"></span>
+                </td>
+                <td class="p-4 font-mono text-slate-600" x-text="formatarData(d.prazo_fatal)"></td>
+                <td class="p-4">
+                  <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
+                    :class="d.status === 'Concluída' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'"
+                    x-text="d.status"></span>
+                </td>
+                <td class="p-4 text-center">
+                  <button @click="avancarStatus(d)" class="text-sky-600 hover:text-sky-800 text-xs font-semibold px-2 py-1 border border-sky-300 rounded hover:bg-sky-50 transition">
+                    Mudar Status
+                  </button>
+                </td>
+              </tr>
+            </template>
+            <template x-if="!carregando && demandasFiltradas.length === 0">
+              <tr>
+                <td colspan="7" class="p-8 text-center text-slate-400">
+                  Nenhuma demanda cadastrada ou encontrada no filtro.
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Modal de Cadastro / Edição -->
+    <div x-show="abrirModal" class="fixed inset-0 bg-slate-900 bg-opacity-50 flex items-center justify-center p-4 z-50" x-cloak>
+      <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-xl" @click.away="abrirModal = false">
+        <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Cadastrar Demanda no Banco de Dados</h3>
+        <form @submit.prevent="salvarDemanda" class="space-y-4">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Nº Protocolo / Ofício</label>
+              <input type="text" x-model="formDemanda.protocolo" required class="w-full border rounded px-3 py-1.5 text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Origem do Pedido</label>
+              <select x-model="formDemanda.origem" class="w-full border rounded px-3 py-1.5 text-sm">
+                <option>Ministério Público</option>
+                <option>Tribunal de Contas</option>
+                <option>Ouvidoria do SUS</option>
+                <option>Denúncia Cidadã</option>
+                <option>Rotina da Subsecretaria</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Descrição / Objeto da Fiscalização</label>
+            <textarea x-model="formDemanda.descricao" required rows="2" class="w-full border rounded px-3 py-1.5 text-sm" placeholder="Ex: Averiguação de cumprimento de escala e insumos em estoque"></textarea>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Tipo de Fiscalização</label>
+              <select x-model="formDemanda.tipo_fiscalizacao" class="w-full border rounded px-3 py-1.5 text-sm">
+                <option>Assistencial</option>
+                <option>Financeira/Contábil</option>
+                <option>Sanitária</option>
+                <option>Farmacêutica</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Grau de Risco</label>
+              <select x-model="formDemanda.grau_risco" class="w-full border rounded px-3 py-1.5 text-sm">
+                <option>Crítico</option>
+                <option>Alto</option>
+                <option>Médio</option>
+                <option>Baixo</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Prazo Limite / Fatal</label>
+              <input type="date" x-model="formDemanda.prazo_fatal" required class="w-full border rounded px-3 py-1.5 text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Responsável / Auditor</label>
+              <input type="text" x-model="formDemanda.responsavel_atribuido" placeholder="Ex: Comissão de Auditoria" class="w-full border rounded px-3 py-1.5 text-sm">
+            </div>
+          </div>
+          <div class="flex justify-end gap-2 pt-4 border-t">
+            <button type="button" @click="abrirModal = false" class="px-4 py-2 border rounded-lg text-sm text-slate-600 hover:bg-slate-50">Cancelar</button>
+            <button type="submit" :disabled="salvando" class="px-4 py-2 bg-sky-700 text-white rounded-lg text-sm font-semibold hover:bg-sky-600 flex items-center">
+              <span x-show="!salvando">Gravar no Sistema</span>
+              <span x-show="salvando"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    
+    const API_URL = 'https://sisfisa-api.onrender.com';
+
+    function fisaApp() {
+      return {
+        abrirModal: false,
+        carregando: false,
+        salvando: false,
+        erroConexao: null,
+        busca: '',
+        demandas: [],
+        formDemanda: {
+          protocolo: '',
+          origem: 'Ministério Público',
+          tipo_fiscalizacao: 'Assistencial',
+          grau_risco: 'Médio',
+          prazo_fatal: '',
+          descricao: '',
+          responsavel_atribuido: ''
+        },
+
+        async carregarDemandas() {
+          this.carregando = true;
+          this.erroConexao = null;
+          try {
+            const res = await fetch(`${API_URL}/api/demandas`);
+            if (!res.ok) throw new Error('Não foi possível carregar os dados da API.');
+            this.demandas = await res.json();
+          } catch (err) {
+            this.erroConexao = 'Aviso: API em hibernação ou endereço incorreto. No plano gratuito do Render, o primeiro acesso pode levar até 45 segundos para ligar o servidor.';
+          } finally {
+            this.carregando = false;
+          }
+        },
+
+        abrirNovoModal() {
+          this.formDemanda = {
+            protocolo: '',
+            origem: 'Ministério Público',
+            tipo_fiscalizacao: 'Assistencial',
+            grau_risco: 'Médio',
+            prazo_fatal: '',
+            descricao: '',
+            responsavel_atribuido: ''
+          };
+          this.abrirModal = true;
+        },
+
+        async salvarDemanda() {
+          this.salvando = true;
+          try {
+            // Nota: vincula à primeira unidade padrão se não houver ID selecionado
+            const payload = {
+              ...this.formDemanda,
+              unidade_id: this.demandas[0]?.unidade_id || null
+            };
+
+            const res = await fetch(`${API_URL}/api/demandas`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) throw new Error('Falha ao cadastrar demanda.');
+            
+            this.abrirModal = false;
+            await this.carregarDemandas();
+          } catch (err) {
+            alert('Erro ao gravar: Verifique se o endereço da API está configurado corretamente.');
+          } finally {
+            this.salvando = false;
+          }
+        },
+
+        async avancarStatus(d) {
+          const proximoStatus = d.status === 'Triagem' ? 'OS Emitida' : d.status === 'OS Emitida' ? 'Concluída' : 'Triagem';
+          try {
+            const res = await fetch(`${API_URL}/api/demandas/${d.id}/status`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: proximoStatus })
+            });
+            if (res.ok) {
+              d.status = proximoStatus;
+            }
+          } catch (err) {
+            alert('Não foi possível atualizar o status no servidor.');
+          }
+        },
+
+        get demandasFiltradas() {
+          if (!this.busca) return this.demandas;
+          return this.demandas.filter(d => 
+            (d.protocolo && d.protocolo.toLowerCase().includes(this.busca.toLowerCase())) ||
+            (d.unidade_nome && d.unidade_nome.toLowerCase().includes(this.busca.toLowerCase())) ||
+            (d.origem && d.origem.toLowerCase().includes(this.busca.toLowerCase()))
+          );
+        },
+
+        formatarData(dataIso) {
+          if (!dataIso) return '-';
+          const [ano, mes, dia] = dataIso.substring(0, 10).split('-');
+          return `${dia}/${mes}/${ano}`;
+        }
+      }
+    }
+  </script>
+</body>
+</html>
