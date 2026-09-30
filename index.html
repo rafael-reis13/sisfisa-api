@@ -106,7 +106,6 @@
                 </td>
                 <td class="p-4">
                   <div class="font-medium text-slate-700" x-text="d.unidade_nome || 'Unidade Geral'"></div>
-                  <span class="text-xs text-slate-400" x-text="d.cnes ? 'CNES: ' + d.cnes : ''"></span>
                 </td>
                 <td class="p-4">
                   <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200" x-text="d.tipo_fiscalizacao"></span>
@@ -183,7 +182,6 @@
             <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
               <span class="text-xs text-slate-500 block mb-0.5 font-medium">Unidade de Saúde Alvo</span>
               <span class="font-semibold text-slate-800" x-text="demandaVisualizada.unidade_nome || 'Unidade Geral'"></span>
-              <span class="text-xs text-slate-500 block" x-show="demandaVisualizada.cnes" x-text="'CNES: ' + demandaVisualizada.cnes"></span>
             </div>
           </div>
 
@@ -268,7 +266,7 @@
             </div>
           </div>
 
-          <!-- Unidade Alvo com atalho para adicionar nova unidade -->
+          <!-- Unidade Alvo -->
           <div>
             <div class="flex justify-between items-center mb-1">
               <label class="block text-xs font-medium text-slate-600">Unidade de Saúde Alvo</label>
@@ -279,7 +277,7 @@
             <select x-model="formDemanda.unidade_id" class="w-full border rounded px-3 py-1.5 text-sm bg-white">
               <option value="">Geral / Subsecretaria / Sem unidade vinculada</option>
               <template x-for="u in unidades" :key="u.id">
-                <option :value="u.id" x-text="u.nome_fantasia + (u.cnes ? ' (CNES: ' + u.cnes + ')' : '')"></option>
+                <option :value="u.id" x-text="u.nome_fantasia"></option>
               </template>
             </select>
           </div>
@@ -334,7 +332,7 @@
       </div>
     </div>
 
-    <!-- NOVO MODAL: Cadastro de Unidade de Saúde -->
+    <!-- Modal: Cadastro de Unidade de Saúde (Apenas Nome e Tipo) -->
     <div x-show="abrirModalUnidade" class="fixed inset-0 bg-slate-900 bg-opacity-50 flex items-center justify-center p-4 z-50" x-cloak>
       <div class="bg-white rounded-xl max-w-md w-full p-6 shadow-xl border border-slate-200" @click.away="abrirModalUnidade = false">
         <div class="flex justify-between items-center border-b pb-3 mb-4">
@@ -350,29 +348,18 @@
         <form @submit.prevent="salvarUnidade" class="space-y-4">
           <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Nome Fantasia da Unidade *</label>
-            <input type="text" x-model="formUnidade.nome_fantasia" required placeholder="Ex: ESF Barra Nova ou Hospital Municipal" class="w-full border rounded px-3 py-1.5 text-sm">
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">CNES (Código SUS)</label>
-              <input type="text" x-model="formUnidade.cnes" placeholder="Ex: 2384721" class="w-full border rounded px-3 py-1.5 text-sm">
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Tipo de Unidade</label>
-              <select x-model="formUnidade.tipo_unidade" class="w-full border rounded px-3 py-1.5 text-sm">
-                <option>Atenção Básica (ESF/UBS)</option>
-                <option>Urgência/Emergência (UPA/PA)</option>
-                <option>Hospitalar</option>
-                <option>Especializada (Policlínica/CEO)</option>
-                <option>Administrativa/Almoxarifado</option>
-              </select>
-            </div>
+            <input type="text" x-model="formUnidade.nome_fantasia" required placeholder="Ex: Hospital Municipal Nossa Senhora de Nazareth" class="w-full border rounded px-3 py-1.5 text-sm">
           </div>
 
           <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Bairro / Localidade</label>
-            <input type="text" x-model="formUnidade.bairro" placeholder="Ex: Centro, Bacaxá, Jaconé..." class="w-full border rounded px-3 py-1.5 text-sm">
+            <label class="block text-xs font-medium text-slate-600 mb-1">Tipo de Unidade</label>
+            <select x-model="formUnidade.tipo_unidade" class="w-full border rounded px-3 py-1.5 text-sm">
+              <option>Atenção Básica (ESF/UBS)</option>
+              <option>Urgência/Emergência (UPA/PA)</option>
+              <option>Hospitalar</option>
+              <option>Especializada (Policlínica/CEO)</option>
+              <option>Administrativa/Almoxarifado</option>
+            </select>
           </div>
 
           <div class="flex justify-end gap-2 pt-4 border-t">
@@ -418,9 +405,7 @@
 
         formUnidade: {
           nome_fantasia: '',
-          cnes: '',
-          tipo_unidade: 'Atenção Básica (ESF/UBS)',
-          bairro: ''
+          tipo_unidade: 'Atenção Básica (ESF/UBS)'
         },
 
         async iniciarApp() {
@@ -472,9 +457,7 @@
         abrirModalNovaUnidade() {
           this.formUnidade = {
             nome_fantasia: '',
-            cnes: '',
-            tipo_unidade: 'Atenção Básica (ESF/UBS)',
-            bairro: ''
+            tipo_unidade: 'Atenção Básica (ESF/UBS)'
           };
           this.abrirModalUnidade = true;
         },
@@ -496,7 +479,6 @@
             const novaUnidade = await res.json();
             await this.carregarUnidades();
             
-            // Já seleciona a unidade recém-criada no formulário de demandas
             this.formDemanda.unidade_id = novaUnidade.id;
             this.abrirModalUnidade = false;
             alert(`Unidade "${novaUnidade.nome_fantasia}" cadastrada com sucesso!`);
