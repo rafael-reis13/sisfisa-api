@@ -9,10 +9,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// String de conexão obtida no Supabase ou PostgreSQL local
+// Conexão via parâmetros individuais (imune a erros de caracteres especiais na senha)
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/sisfisa',
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  host: process.env.DB_HOST || 'aws-0-sa-east-1.pooler.supabase.com',
+  port: parseInt(process.env.DB_PORT, 10) || 6543,
+  database: process.env.DB_NAME || 'postgres',
+  user: process.env.DB_USER || 'postgres.tzqjokydncchqhybljdb',
+  password: process.env.DB_PASSWORD,
+  ssl: { rejectUnauthorized: false }
 });
 
 // Listar demandas ativas com dados da unidade
@@ -21,7 +25,7 @@ app.get('/api/demandas', async (req, res) => {
     const query = `
       SELECT d.*, u.nome_fantasia as unidade_nome, u.cnes 
       FROM demandas d
-      JOIN unidades_saude u ON d.unidade_id = u.id
+      LEFT JOIN unidades_saude u ON d.unidade_id = u.id
       ORDER BY 
         CASE d.grau_risco 
           WHEN 'Crítico' THEN 1 
@@ -43,7 +47,7 @@ app.post('/api/demandas', async (req, res) => {
   try {
     const query = `
       INSERT INTO demandas (protocolo, origem, unidade_id, tipo_fiscalizacao, grau_risco, prazo_fatal, descricao, responsavel_atribuido, numero_sei)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *;
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *;
     `;
     const { rows } = await pool.query(query, [protocolo, origem, unidade_id, tipo_fiscalizacao, grau_risco, prazo_fatal, descricao, responsavel_atribuido, numero_sei]);
     res.status(201).json(rows[0]);
