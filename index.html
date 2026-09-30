@@ -398,7 +398,7 @@
         },
 
         async avancarStatus(d) {
-          const proximoStatus = d.status === 'Triagem' ? 'OS Emitida' : d.status === 'OS Emitida' ? 'Concluída' : 'Triagem';
+          const proximoStatus = d.status === 'Triagem' ? 'Em andamento' : d.status === 'Em andamento' ? 'Concluída' : 'Triagem';
           try {
             const res = await fetch(`${API_URL}/api/demandas/${d.id}/status`, {
               method: 'PATCH',
