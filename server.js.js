@@ -58,7 +58,7 @@ app.get('/api/unidades', async (req, res) => {
   }
 });
 
-// Cadastrar nova unidade de saúde
+// Cadastrar nova unidade de saúde (com CNES único gerado automaticamente para contornar a regra UNIQUE)
 app.post('/api/unidades', async (req, res) => {
   const { nome_fantasia, tipo_unidade } = req.body;
   try {
@@ -69,7 +69,7 @@ app.post('/api/unidades', async (req, res) => {
     const payload = {
       nome_fantasia: nome_fantasia.trim(),
       tipo_unidade: tipo_unidade || 'Atenção Básica (ESF/UBS)',
-      cnes: 'N/A',
+      cnes: 'AUTO-' + Date.now().toString().slice(-8), // Gera um identificador único (ex: AUTO-12345678) evitando duplicidade
       tipo_gestao: 'Administração Direta',
       endereco: 'Não informado'
     };
