@@ -58,7 +58,7 @@ app.get('/api/unidades', async (req, res) => {
   }
 });
 
-// Cadastrar nova unidade de saúde (apenas com as colunas reais da tabela)
+// Cadastrar nova unidade de saúde (com defaults para todos os campos restritos do banco)
 app.post('/api/unidades', async (req, res) => {
   const { nome_fantasia, tipo_unidade } = req.body;
   try {
@@ -70,7 +70,8 @@ app.post('/api/unidades', async (req, res) => {
       nome_fantasia: nome_fantasia.trim(),
       tipo_unidade: tipo_unidade || 'Atenção Básica (ESF/UBS)',
       cnes: 'N/A',
-      tipo_gestao: 'Administração Direta'
+      tipo_gestao: 'Administração Direta',
+      endereco: 'Não informado' // Satisfaz a restrição not-null da coluna endereco
     };
 
     const { data, error } = await supabase
