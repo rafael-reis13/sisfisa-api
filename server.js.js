@@ -13,7 +13,7 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Rota de Health Check para acordar a API rapidamente
+// Rota de Health Check
 app.get('/api/ping', (req, res) => res.json({ status: 'online', timestamp: new Date() }));
 
 // Listar demandas com dados da unidade
@@ -123,7 +123,7 @@ app.delete('/api/unidades/:id', async (req, res) => {
   }
 });
 
-// Cadastrar demanda ou reunião
+// Cadastrar demanda
 app.post('/api/demandas', async (req, res) => {
   const { 
     protocolo, 
@@ -165,7 +165,6 @@ app.post('/api/demandas', async (req, res) => {
       .insert([payload])
       .select('*, unidades_saude(nome_fantasia)');
 
-    // Fallback caso a coluna esfera_gestao não exista fisicamente no schema
     if (error && error.message.includes('esfera_gestao')) {
       delete payload.esfera_gestao;
       payload.descricao = `[GESTÃO: ${esfera_gestao || 'Administração Municipal (Direta)'}]\n` + payload.descricao;
@@ -193,7 +192,69 @@ app.post('/api/demandas', async (req, res) => {
   }
 });
 
-// Atualizar status
+// Atualizar Demanda Completa (Edição de Dados e Responsável)
+app.put('/api/demandas/:id', async (req, res) => {
+  const { id } = req.params;
+  const { 
+    protocolo, 
+    origem, 
+    unidade_id, 
+    tipo_fiscalizacao, 
+    grau_risco, 
+    prazo_fatal, 
+    descricao, 
+    responsavel_atribuido, 
+    esfera_gestao 
+  } = req.body;
+
+  try {
+    const payload = {
+      protocolo,
+      origem,
+      tipo_fiscalizacao,
+      grau_risco,
+      prazo_fatal: prazo_fatal || null,
+      descricao: descricao || '',
+      responsavel_atribuido: responsavel_atribuido || 'Comissão de Auditoria',
+      unidade_id: (unidade_id && unidade_id.trim() !== '') ? unidade_id.trim() : null
+    };
+
+    if (esfera_gestao) payload.esfera_gestao = esfera_gestao;
+
+    let { data, error } = await supabase
+      .from('demandas')
+      .update(payload)
+      .eq('id', id)
+      .select('*, unidades_saude(nome_fantasia)');
+
+    if (error && error.message.includes('esfera_gestao')) {
+      delete payload.esfera_gestao;
+      const fallback = await supabase
+        .from('demandas')
+        .update(payload)
+        .eq('id', id)
+        .select('*, unidades_saude(nome_fantasia)');
+      data = fallback.data;
+      error = fallback.error;
+    }
+
+    if (error) {
+      console.error('Erro PUT /demandas:', error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    const item = data[0];
+    res.json({
+      ...item,
+      unidade_nome: item.unidades_saude?.nome_fantasia || 'Unidade Geral'
+    });
+  } catch (err) {
+    console.error('Erro interno PUT /demandas:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Atualizar status da demanda
 app.patch('/api/demandas/:id/status', async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
@@ -264,7 +325,7 @@ app.post('/api/demandas/:id/despachos', async (req, res) => {
   }
 });
 
-// Excluir demanda / reunião
+// Excluir demanda
 app.delete('/api/demandas/:id', async (req, res) => {
   const { id } = req.params;
   try {
@@ -275,7 +336,7 @@ app.delete('/api/demandas/:id', async (req, res) => {
       .select();
 
     if (error) throw error;
-    res.json({ message: 'Registro excluído com sucesso', deletado: data });
+    res.json({ message: 'Demanda excluída com sucesso', deletado: data });
   } catch (err) {
     console.error('Erro ao excluir:', err);
     res.status(500).json({ error: err.message });
