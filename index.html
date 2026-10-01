@@ -11,27 +11,44 @@
   <style>
     [x-cloak] { display: none !important; }
 
-    #folha-impressao { display: none; }
+    /* As folhas de impressão ficam ocultas na tela do computador */
+    .area-papel-impressao { display: none; }
 
     @media print {
       body {
         background-color: white !important;
         color: black !important;
       }
+      /* Oculta tudo da interface web */
       header, main, .no-print, [role="dialog"], .fixed {
         display: none !important;
       }
-      #folha-impressao, #area-relatorio-executivo, #area-dossie-unidade {
+
+      /* Controla a exibição exata do que foi solicitado imprimir */
+      body.imprimindo-demanda #folha-impressao-demanda {
         display: block !important;
-        position: static !important;
         width: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
+      }
+      body.imprimindo-dossie #folha-impressao-dossie {
+        display: block !important;
+        width: 100% !important;
+      }
+      body.imprimindo-relatorio #folha-impressao-relatorio {
+        display: block !important;
+        width: 100% !important;
       }
     }
   </style>
 </head>
-<body class="bg-slate-100 text-slate-800 font-sans antialiased" x-data="fisaApp()" x-init="iniciarApp()">
+<body 
+  class="bg-slate-100 text-slate-800 font-sans antialiased" 
+  :class="{
+    'imprimindo-demanda': modoImpressao === 'demanda',
+    'imprimindo-dossie': modoImpressao === 'dossie',
+    'imprimindo-relatorio': modoImpressao === 'relatorio'
+  }"
+  x-data="fisaApp()" 
+  x-init="iniciarApp()">
 
   <!-- Notificações Toast Flutuantes -->
   <div class="fixed top-5 right-5 z-50 flex flex-col gap-2 max-w-sm pointer-events-none no-print">
@@ -95,7 +112,6 @@
       </div>
 
       <div class="flex items-center gap-2">
-        <!-- Botão Novo: Registrar Visita in loco -->
         <button @click="abrirModalNovaVisita()" class="bg-amber-600 hover:bg-amber-500 text-white px-3 py-2 rounded-lg font-semibold text-xs sm:text-sm flex items-center transition shadow-sm">
           <i class="fa-solid fa-location-dot mr-1.5"></i> Registrar Visita
         </button>
@@ -169,7 +185,6 @@
 
       <!-- Tabela Principal -->
       <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        
         <div class="p-5 border-b border-slate-100 flex flex-col gap-4">
           <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
@@ -473,7 +488,7 @@
       </div>
     </div>
 
-    <!-- MODAL NOVO: REGISTRAR VISITA IN LOCO -->
+    <!-- MODAL: REGISTRAR VISITA IN LOCO -->
     <div x-show="abrirModalVisita" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
       <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto" @click.away="abrirModalVisita = false">
         
@@ -487,11 +502,11 @@
         <form @submit.prevent="salvarVisitaInLoco" class="space-y-4">
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Identificação / Protocolo da Visita *</label>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Identificação / Protocolo *</label>
               <input type="text" x-model="formVisita.protocolo" required class="w-full border rounded px-3 py-1.5 text-sm" placeholder="Ex: VISTORIA-2026/01">
             </div>
             <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Data da Inspeção in loco *</label>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Data da Inspeção *</label>
               <input type="date" x-model="formVisita.prazo_fatal" required class="w-full border rounded px-3 py-1.5 text-sm bg-white">
             </div>
           </div>
@@ -534,7 +549,7 @@
 
           <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Relatório da Visita & Achados in loco *</label>
-            <textarea x-model="formVisita.descricao" required rows="4" class="w-full border rounded px-3 py-1.5 text-sm" placeholder="Descreva os achados da fiscalização em campo: cumprimento de escala, presença de médicos/enfermagem, abastecimento da farmácia, condições estruturais, etc."></textarea>
+            <textarea x-model="formVisita.descricao" required rows="4" class="w-full border rounded px-3 py-1.5 text-sm" placeholder="Descreva os achados da fiscalização em campo: cumprimento de escala, presença de médicos/enfermagem, farmácia, etc."></textarea>
           </div>
 
           <div class="flex justify-end gap-2 pt-4 border-t">
@@ -560,7 +575,6 @@
         </h3>
 
         <form @submit.prevent="salvarDemanda" class="space-y-4">
-          
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-medium text-slate-600 mb-1">Nº Protocolo / Ofício *</label>
@@ -633,7 +647,6 @@
             </div>
           </div>
 
-          <!-- Responsável e Prazo Fatal -->
           <div class="grid grid-cols-2 gap-3 bg-slate-50 p-2.5 rounded-lg border">
             <div>
               <label class="block text-xs font-bold text-sky-950 mb-1">Auditor / Responsável *</label>
@@ -656,7 +669,7 @@
       </div>
     </div>
 
-    <!-- MODAL DE VISUALIZAÇÃO E DESPACHOS -->
+    <!-- MODAL DE DETALHES E DESPACHOS -->
     <div x-show="modalVisualizar" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak @keydown.escape.window="modalVisualizar = false">
       <div class="bg-white rounded-xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]" @click.away="modalVisualizar = false">
         
@@ -837,7 +850,7 @@
           </button>
         </div>
 
-        <div class="overflow-y-auto space-y-6 flex-1 pr-1">
+        <div class="overflow-y-space-y-6 flex-1 pr-1 overflow-y-auto">
           <form @submit.prevent="salvarUnidade" class="space-y-3 bg-slate-50 p-3.5 rounded-lg border border-slate-200">
             <span class="text-xs font-bold text-sky-900 uppercase block mb-1">Cadastrar Nova Unidade</span>
             <div>
@@ -864,7 +877,7 @@
             </div>
           </form>
 
-          <div>
+          <div class="mt-4">
             <div class="flex justify-between items-center mb-2">
               <span class="text-xs font-bold text-slate-700 uppercase">Unidades Cadastradas (<span x-text="unidades.length"></span>)</span>
             </div>
@@ -876,7 +889,6 @@
                     <p class="font-bold text-slate-800 text-xs sm:text-sm" x-text="u.nome_fantasia"></p>
                     <div class="flex items-center gap-2 mt-0.5">
                       <span class="text-xs text-slate-400" x-text="u.tipo_unidade"></span>
-                      <!-- BADGE DE QUANTIDADE DE VISITAS IN LOCO REALIZADAS NA UNIDADE -->
                       <span class="text-[10px] px-2 py-0.2 rounded-full font-bold bg-amber-100 text-amber-800 border border-amber-200" x-text="contarVisitasPorUnidade(u.id) + ' visita(s)'"></span>
                     </div>
                   </div>
@@ -911,12 +923,11 @@
       </div>
     </div>
 
-    <!-- MODAL: FICHA HISTÓRICA / DOSSIÊ DA UNIDADE (COM SEÇÃO DE VISITAS IN LOCO) -->
+    <!-- MODAL DO DOSSIÊ DA UNIDADE (RAIO-X EM TELA) -->
     <div x-show="modalDossieUnidade" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
       <div class="bg-white rounded-xl max-w-4xl w-full p-6 shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[94vh]" @click.away="modalDossieUnidade = false">
         
-        <div id="area-dossie-unidade" class="overflow-y-auto space-y-6 text-sm pr-2 flex-1" x-if="unidadeDossie">
-          <!-- Cabeçalho Oficial da Unidade -->
+        <div class="overflow-y-auto space-y-6 text-sm pr-2 flex-1" x-if="unidadeDossie">
           <div class="border-b-2 border-slate-800 pb-3 flex justify-between items-start">
             <div>
               <span class="text-[11px] text-sky-800 font-bold uppercase tracking-wider block">Dossiê Técnico de Fiscalização e Auditoria</span>
@@ -931,7 +942,6 @@
             </button>
           </div>
 
-          <!-- Métricas e Indicadores da Unidade com Destaque para Visitas in loco -->
           <div class="grid grid-cols-4 gap-3 text-center">
             <div class="p-3 bg-slate-50 border rounded-lg">
               <span class="text-[10px] text-slate-500 uppercase font-semibold block">Total Notificações</span>
@@ -951,7 +961,7 @@
             </div>
           </div>
 
-          <!-- SEÇÃO DEDICADA: HISTÓRICO DE VISITAS IN LOCO REALIZADAS NESTA UNIDADE -->
+          <!-- Seção de Visitas in loco nesta unidade -->
           <div class="bg-amber-50/60 border border-amber-200 p-4 rounded-xl">
             <div class="flex justify-between items-center mb-2.5 pb-2 border-b border-amber-200/80">
               <h4 class="text-xs font-bold text-amber-950 uppercase tracking-wide flex items-center gap-1.5">
@@ -985,7 +995,7 @@
             </div>
           </div>
 
-          <!-- Histórico Geral de Demandas e Notificações -->
+          <!-- Processos e Demandas Gerais -->
           <div>
             <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 border-b pb-1">
               Processos, Notificações e Expedientes Gerais (<span x-text="demandasDaUnidadeDossie.filter(d => d.tipo_fiscalizacao !== 'Visita in loco').length"></span>)
@@ -1024,10 +1034,10 @@
       </div>
     </div>
 
-    <!-- MODAL: RELATÓRIO MENSAL EXECUTIVO -->
+    <!-- MODAL: RELATÓRIO MENSAL EM TELA -->
     <div x-show="modalRelatorioMensal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
       <div class="bg-white rounded-xl max-w-4xl w-full p-8 shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[94vh]" @click.away="modalRelatorioMensal = false">
-        <div id="area-relatorio-executivo" class="overflow-y-auto space-y-6 text-sm pr-2 flex-1">
+        <div class="overflow-y-auto space-y-6 text-sm pr-2 flex-1">
           <div class="border-b-2 border-slate-800 pb-4 text-center space-y-1">
             <h2 class="text-lg font-bold tracking-tight text-slate-900 uppercase">Prefeitura Municipal &bull; Secretaria de Saúde</h2>
             <h3 class="text-sm font-semibold text-sky-900">Subsecretaria de Fiscalização e Avaliação da Saúde</h3>
@@ -1074,8 +1084,12 @@
 
   </main>
 
-  <!-- ==================== ÁREA EXCLUSIVA DE IMPRESSÃO (FICHA TIMBRADA NATIVA) ==================== -->
-  <div id="folha-impressao" x-show="demandaVisualizada">
+  <!-- ========================================================================= -->
+  <!-- FOLHAS DE IMPRESSÃO EXCLUSIVAS (TOTALMENTE INDEPENDENTES E FORA DOS MODAIS) -->
+  <!-- ========================================================================= -->
+
+  <!-- 1. FOLHA EXCLUSIVA: FICHA TÉCNICA DA DEMANDA / FISCALIZAÇÃO -->
+  <div id="folha-impressao-demanda" class="area-papel-impressao" x-show="demandaVisualizada">
     <div style="border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px; text-align: center;">
       <h1 style="font-size: 15px; font-weight: bold; text-transform: uppercase; margin: 0; color: #0f172a;">Prefeitura Municipal &bull; Secretaria de Saúde</h1>
       <h2 style="font-size: 13px; font-weight: bold; text-transform: uppercase; margin: 4px 0 0 0; color: #0369a1;">Subsecretaria de Fiscalização e Avaliação da Saúde</h2>
@@ -1145,6 +1159,146 @@
     </div>
   </div>
 
+  <!-- 2. FOLHA EXCLUSIVA: DOSSIÊ TÉCNICO DA UNIDADE DE SAÚDE (RAIO-X COMPLETO) -->
+  <div id="folha-impressao-dossie" class="area-papel-impressao" x-show="unidadeDossie">
+    <div style="border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px; text-align: center;">
+      <h1 style="font-size: 15px; font-weight: bold; text-transform: uppercase; margin: 0; color: #0f172a;">Prefeitura Municipal &bull; Secretaria de Saúde</h1>
+      <h2 style="font-size: 13px; font-weight: bold; text-transform: uppercase; margin: 4px 0 0 0; color: #0369a1;">Subsecretaria de Fiscalização e Avaliação da Saúde</h2>
+      <p style="font-size: 11px; font-family: monospace; color: #64748b; margin: 4px 0 0 0;">DOSSIÊ TÉCNICO & HISTÓRICO DE FISCALIZAÇÃO DA UNIDADE</p>
+    </div>
+
+    <div style="font-size: 12px; color: #1e293b; line-height: 1.4;">
+      <!-- Identificação da Unidade -->
+      <div style="border: 1px solid #cbd5e1; padding: 12px; border-radius: 6px; margin-bottom: 14px; background-color: #f8fafc;">
+        <span style="font-size: 10px; font-weight: bold; color: #0369a1; text-transform: uppercase; display: block;">Unidade de Saúde</span>
+        <strong style="font-size: 16px; color: #0f172a;" x-text="unidadeDossie?.nome_fantasia"></strong>
+        <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
+          <span>Tipo: <strong style="color: #334155;" x-text="unidadeDossie?.tipo_unidade"></strong></span>
+          <span style="margin-left: 14px;" x-show="unidadeDossie?.cnes && !unidadeDossie?.cnes.startsWith('AUTO-')">CNES: <strong style="color: #334155;" x-text="unidadeDossie?.cnes"></strong></span>
+        </div>
+      </div>
+
+      <!-- Resumo Numérico -->
+      <div style="display: flex; gap: 8px; margin-bottom: 16px; text-align: center;">
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Total Notificações</span>
+          <strong style="font-size: 14px; color: #0f172a;" x-text="demandasDaUnidadeDossie.length"></strong>
+        </div>
+        <div style="flex: 1; border: 1px solid #f59e0b; background-color: #fffbeb; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 9px; font-weight: bold; color: #b45309; text-transform: uppercase; display: block;">Visitas in loco</span>
+          <strong style="font-size: 14px; color: #78350f;" x-text="visitasInLocoDaUnidadeDossie.length"></strong>
+        </div>
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Processos Críticos</span>
+          <strong style="font-size: 14px; color: #e11d48;" x-text="demandasDaUnidadeDossie.filter(d => d.grau_risco === 'Crítico' || d.grau_risco === 'Alto').length"></strong>
+        </div>
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Reuniões Realizadas</span>
+          <strong style="font-size: 14px; color: #047857;" x-text="reunioesDaUnidadeDossie.length"></strong>
+        </div>
+      </div>
+
+      <!-- Relatório das Visitas in loco -->
+      <div style="margin-bottom: 16px;">
+        <h3 style="font-size: 11px; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #94a3b8; padding-bottom: 4px; margin-bottom: 8px; color: #0f172a;">
+          1. Histórico de Fiscalizações em Campo (Visitas in loco) (<span x-text="visitasInLocoDaUnidadeDossie.length"></span>)
+        </h3>
+        <template x-for="v in visitasInLocoDaUnidadeDossie" :key="v.id">
+          <div style="border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; margin-bottom: 6px;">
+            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px; margin-bottom: 4px;">
+              <span x-text="v.protocolo"></span>
+              <span style="font-family: monospace; color: #b45309;" x-text="formatarData(v.prazo_fatal)"></span>
+            </div>
+            <p style="margin: 0; font-size: 10.5px; color: #334155; line-height: 1.4;" x-text="v.descricao"></p>
+            <div style="font-size: 9.5px; color: #64748b; margin-top: 4px; border-top: 1px dashed #e2e8f0; padding-top: 3px;">
+              <span>Auditor/Fiscal: <strong x-text="v.responsavel_atribuido || 'Equipe FISA'"></strong></span>
+              <span style="margin-left: 12px;" x-text="'Risco apurado: ' + v.grau_risco"></span>
+            </div>
+          </div>
+        </template>
+        <template x-if="visitasInLocoDaUnidadeDossie.length === 0">
+          <p style="font-size: 10px; color: #94a3b8; font-style: italic; margin: 4px 0;">Nenhuma visita in loco registrada para esta unidade.</p>
+        </template>
+      </div>
+
+      <!-- Relatório dos Processos Gerais -->
+      <div style="margin-bottom: 24px;">
+        <h3 style="font-size: 11px; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #94a3b8; padding-bottom: 4px; margin-bottom: 8px; color: #0f172a;">
+          2. Processos e Notificações Gerais (<span x-text="demandasDaUnidadeDossie.filter(d => d.tipo_fiscalizacao !== 'Visita in loco').length"></span>)
+        </h3>
+        <template x-for="d in demandasDaUnidadeDossie.filter(d => d.tipo_fiscalizacao !== 'Visita in loco')" :key="d.id">
+          <div style="border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; margin-bottom: 6px;">
+            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px; margin-bottom: 3px;">
+              <span x-text="d.protocolo + ' (' + d.tipo_fiscalizacao + ')'"></span>
+              <span style="font-size: 10px; color: #475569;" x-text="d.status + ' &bull; Prazo: ' + formatarData(d.prazo_fatal)"></span>
+            </div>
+            <p style="margin: 0; font-size: 10.5px; color: #334155; line-height: 1.4;" x-text="d.descricao"></p>
+          </div>
+        </template>
+      </div>
+
+      <!-- Assinatura -->
+      <div style="padding-top: 30px; text-align: center;">
+        <div style="border-top: 1px solid #475569; width: 50%; margin: 0 auto; padding-top: 6px; font-weight: bold; color: #0f172a;">
+          Subsecretaria de Fiscalização e Avaliação da Saúde
+        </div>
+        <span style="font-size: 10px; color: #64748b;">Gestão, Controle e Governança</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. FOLHA EXCLUSIVA: RELATÓRIO MENSAL EXECUTIVO -->
+  <div id="folha-impressao-relatorio" class="area-papel-impressao">
+    <div style="border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px; text-align: center;">
+      <h1 style="font-size: 15px; font-weight: bold; text-transform: uppercase; margin: 0; color: #0f172a;">Prefeitura Municipal &bull; Secretaria de Saúde</h1>
+      <h2 style="font-size: 13px; font-weight: bold; text-transform: uppercase; margin: 4px 0 0 0; color: #0369a1;">Subsecretaria de Fiscalização e Avaliação da Saúde</h2>
+      <p style="font-size: 11px; font-family: monospace; color: #64748b; margin: 4px 0 0 0;" x-text="'RELATÓRIO MENSAL EXECUTIVO &bull; ' + dataRelatorioExtenso"></p>
+    </div>
+
+    <div style="font-size: 12px; color: #1e293b; line-height: 1.4;">
+      <div style="display: flex; gap: 8px; margin-bottom: 16px; text-align: center;">
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Total de Fiscalizações</span>
+          <strong style="font-size: 14px; color: #0f172a;" x-text="demandasApenasFiscalizacao.length"></strong>
+        </div>
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Concluídas</span>
+          <strong style="font-size: 14px; color: #047857;" x-text="demandasApenasFiscalizacao.filter(d => d.status === 'Concluída').length"></strong>
+        </div>
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Em Andamento</span>
+          <strong style="font-size: 14px; color: #b45309;" x-text="demandasApenasFiscalizacao.filter(d => d.status !== 'Concluída').length"></strong>
+        </div>
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Críticas / Alto Risco</span>
+          <strong style="font-size: 14px; color: #e11d48;" x-text="demandasApenasFiscalizacao.filter(d => d.grau_risco === 'Crítico' || d.grau_risco === 'Alto').length"></strong>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <h3 style="font-size: 11px; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #94a3b8; padding-bottom: 4px; margin-bottom: 8px; color: #0f172a;">
+          1. Demandas com Órgãos de Controle (MP / TCE / Ouvidoria)
+        </h3>
+        <template x-for="d in demandasApenasFiscalizacao.filter(d => d.grau_risco === 'Crítico' || d.origem === 'Ministério Público' || d.origem === 'Tribunal de Contas').slice(0, 5)" :key="d.id">
+          <div style="border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; margin-bottom: 6px;">
+            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px; margin-bottom: 2px;">
+              <span x-text="d.protocolo + ' &bull; ' + (d.unidade_nome || 'Geral') + ' (' + obterEsferaGestao(d) + ')'"></span>
+              <span style="color: #e11d48;" x-text="d.grau_risco"></span>
+            </div>
+            <p style="margin: 0; font-size: 10px; color: #475569;" x-text="d.descricao"></p>
+          </div>
+        </template>
+      </div>
+
+      <div style="padding-top: 36px; text-align: center;">
+        <div style="border-top: 1px solid #475569; width: 50%; margin: 0 auto; padding-top: 6px; font-weight: bold; color: #0f172a;">
+          Subsecretaria de Fiscalização e Avaliação da Saúde
+        </div>
+        <span style="font-size: 10px; color: #64748b;">Gestão, Controle e Governança</span>
+      </div>
+    </div>
+  </div>
+
   <script>
     const API_URL = 'https://sisfisa-api.onrender.com';
 
@@ -1159,6 +1313,8 @@
         modalRelatorioMensal: false,
         modalDossieUnidade: false,
         
+        modoImpressao: '', // 'demanda' | 'dossie' | 'relatorio'
+
         editandoId: null,
         demandaVisualizada: null,
         unidadeDossie: null,
@@ -1200,7 +1356,7 @@
 
         formVisita: {
           protocolo: '',
-          origem: 'Diligência in loco',
+          origem: 'Fiscalização in loco',
           unidade_id: '',
           esfera_gestao: 'Administração Municipal (Direta)',
           tipo_fiscalizacao: 'Visita in loco',
@@ -1284,6 +1440,33 @@
           }
         },
 
+        // --- CONTROLE DE IMPRESSÃO INDIVIDUAL ---
+        imprimirFicha() {
+          if (!this.demandaVisualizada) return;
+          this.modoImpressao = 'demanda';
+          setTimeout(() => {
+            window.print();
+            this.modoImpressao = '';
+          }, 100);
+        },
+
+        imprimirDossie() {
+          if (!this.unidadeDossie) return;
+          this.modoImpressao = 'dossie';
+          setTimeout(() => {
+            window.print();
+            this.modoImpressao = '';
+          }, 100);
+        },
+
+        imprimirRelatorio() {
+          this.modoImpressao = 'relatorio';
+          setTimeout(() => {
+            window.print();
+            this.modoImpressao = '';
+          }, 100);
+        },
+
         // --- MÓDULO VISITAS IN LOCO ---
         abrirModalNovaVisita(unidadeId = '') {
           const hojeIso = new Date().toISOString().substring(0, 10);
@@ -1307,7 +1490,7 @@
             const payload = {
               ...this.formVisita,
               unidade_id: this.formVisita.unidade_id || null,
-              status: 'Concluída' // Visitas realizadas entram por padrão como realizadas/concluídas
+              status: 'Concluída'
             };
 
             const res = await fetch(`${API_URL}/api/demandas`, {
@@ -1320,7 +1503,7 @@
 
             this.abrirModalVisita = false;
             await this.carregarDemandas();
-            this.mostrarToast(`Visita in loco "${payload.protocolo}" registrada com sucesso!`);
+            this.mostrarToast(`Visita in loco "${payload.protocolo}" registrada!`);
           } catch (err) {
             this.mostrarToast(err.message, 'erro');
           } finally {
@@ -1348,10 +1531,6 @@
         abrirDossieUnidade(u) {
           this.unidadeDossie = u;
           this.modalDossieUnidade = true;
-        },
-
-        imprimirDossie() {
-          window.print();
         },
 
         get demandasDaUnidadeDossie() {
@@ -1409,7 +1588,6 @@
           this.abaAtiva = 'fiscalizacoes';
         },
 
-        // --- CADASTRO E EDIÇÃO DE DEMANDA ---
         abrirNovoModal() {
           this.editandoId = null;
           this.formDemanda = {
@@ -1506,7 +1684,6 @@
           );
         },
 
-        // --- ALERTAS PRIORITÁRIOS ---
         get alertasPrioritarios() {
           return this.demandasApenasFiscalizacao.filter(d => {
             if (d.status === 'Concluída') return false;
@@ -1527,7 +1704,6 @@
           return Math.round((prazo - hoje) / (1000 * 60 * 60 * 24));
         },
 
-        // --- GRÁFICOS ---
         atualizarGraficos() {
           const dadosFiscalizacao = this.demandasApenasFiscalizacao;
 
@@ -1608,9 +1784,7 @@
           }
         },
 
-        // --- RELATÓRIO E CALENDÁRIO ---
         abrirRelatorioMensal() { this.modalRelatorioMensal = true; },
-        imprimirRelatorio() { window.print(); },
         get dataRelatorioExtenso() {
           return new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase();
         },
@@ -1803,13 +1977,6 @@
           } finally {
             this.salvandoDespacho = false;
           }
-        },
-
-        imprimirFicha() {
-          if (!this.demandaVisualizada) return;
-          setTimeout(() => {
-            window.print();
-          }, 100);
         },
 
         exportarParaCSV() {
