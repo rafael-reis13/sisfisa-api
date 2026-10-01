@@ -74,7 +74,7 @@
     <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
       <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
         <h2 class="font-bold text-lg text-slate-800">Mapa Operacional de Fiscalizações</h2>
-        <input type="text" x-model="busca" placeholder="Filtrar demandas..." class="w-full sm:w-80 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500">
+        <input type="text" x-model="busca" placeholder="Filtrar por protocolo, unidade, origem ou gestão..." class="w-full sm:w-80 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500">
       </div>
 
       <div class="overflow-x-auto">
@@ -83,6 +83,7 @@
             <tr class="bg-slate-50 text-slate-600 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
               <th class="p-4">Protocolo / Origem</th>
               <th class="p-4">Unidade Alvo</th>
+              <th class="p-4">Gestão</th>
               <th class="p-4">Eixo Fiscalizado</th>
               <th class="p-4">Risco</th>
               <th class="p-4">Prazo Limite</th>
@@ -93,7 +94,7 @@
           <tbody class="divide-y divide-slate-100">
             <template x-if="carregando">
               <tr>
-                <td colspan="7" class="p-8 text-center text-slate-500">
+                <td colspan="8" class="p-8 text-center text-slate-500">
                   <i class="fa-solid fa-spinner fa-spin mr-2"></i> Carregando registros do banco de dados...
                 </td>
               </tr>
@@ -106,6 +107,12 @@
                 </td>
                 <td class="p-4">
                   <div class="font-medium text-slate-700" x-text="d.unidade_nome || 'Unidade Geral'"></div>
+                </td>
+                <td class="p-4">
+                  <span class="px-2 py-0.5 rounded text-xs font-semibold"
+                    :class="obterEsferaGestao(d) === 'Organização Social (OS)' ? 'bg-purple-100 text-purple-700 border border-purple-200' : 'bg-sky-100 text-sky-700 border border-sky-200'"
+                    x-text="obterEsferaGestao(d)">
+                  </span>
                 </td>
                 <td class="p-4">
                   <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200" x-text="d.tipo_fiscalizacao"></span>
@@ -147,7 +154,7 @@
             </template>
             <template x-if="!carregando && demandasFiltradas.length === 0">
               <tr>
-                <td colspan="7" class="p-8 text-center text-slate-400">
+                <td colspan="8" class="p-8 text-center text-slate-400">
                   Nenhuma demanda cadastrada ou encontrada no filtro.
                 </td>
               </tr>
@@ -174,7 +181,7 @@
         </div>
 
         <div class="overflow-y-auto space-y-4 text-sm pr-1 flex-1" x-if="demandaVisualizada">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
               <span class="text-xs text-slate-500 block mb-0.5 font-medium">Origem do Pedido</span>
               <span class="font-semibold text-slate-800" x-text="demandaVisualizada.origem || 'Não informada'"></span>
@@ -182,6 +189,13 @@
             <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
               <span class="text-xs text-slate-500 block mb-0.5 font-medium">Unidade de Saúde Alvo</span>
               <span class="font-semibold text-slate-800" x-text="demandaVisualizada.unidade_nome || 'Unidade Geral'"></span>
+            </div>
+            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Esfera de Gestão</span>
+              <span class="font-semibold" 
+                :class="obterEsferaGestao(demandaVisualizada) === 'Organização Social (OS)' ? 'text-purple-700' : 'text-sky-700'"
+                x-text="obterEsferaGestao(demandaVisualizada)">
+              </span>
             </div>
           </div>
 
@@ -266,20 +280,31 @@
             </div>
           </div>
 
-          <!-- Unidade Alvo -->
-          <div>
-            <div class="flex justify-between items-center mb-1">
-              <label class="block text-xs font-medium text-slate-600">Unidade de Saúde Alvo</label>
-              <button type="button" @click="abrirModalNovaUnidade()" class="text-xs text-sky-600 hover:text-sky-800 font-semibold flex items-center gap-1">
-                <i class="fa-solid fa-gear"></i> Gerenciar Unidades
-              </button>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <!-- Unidade Alvo -->
+            <div>
+              <div class="flex justify-between items-center mb-1">
+                <label class="block text-xs font-medium text-slate-600">Unidade de Saúde Alvo</label>
+                <button type="button" @click="abrirModalNovaUnidade()" class="text-xs text-sky-600 hover:text-sky-800 font-semibold flex items-center gap-1">
+                  <i class="fa-solid fa-plus-circle"></i> Gerenciar
+                </button>
+              </div>
+              <select x-model="formDemanda.unidade_id" class="w-full border rounded px-3 py-1.5 text-sm bg-white">
+                <option value="">Geral / Subsecretaria / Sem unidade vinculada</option>
+                <template x-for="u in unidades" :key="u.id">
+                  <option :value="u.id" x-text="u.nome_fantasia"></option>
+                </template>
+              </select>
             </div>
-            <select x-model="formDemanda.unidade_id" class="w-full border rounded px-3 py-1.5 text-sm bg-white">
-              <option value="">Geral / Subsecretaria / Sem unidade vinculada</option>
-              <template x-for="u in unidades" :key="u.id">
-                <option :value="u.id" x-text="u.nome_fantasia"></option>
-              </template>
-            </select>
+
+            <!-- Identificação de Gestão: Município ou Organização Social -->
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Esfera de Gestão *</label>
+              <select x-model="formDemanda.esfera_gestao" class="w-full border rounded px-3 py-1.5 text-sm bg-white font-medium">
+                <option value="Administração Municipal (Direta)">Administração Municipal (Direta)</option>
+                <option value="Organização Social (OS)">Organização Social (OS)</option>
+              </select>
+            </div>
           </div>
 
           <div>
@@ -347,7 +372,6 @@
         </div>
 
         <div class="overflow-y-auto space-y-6 flex-1 pr-1">
-          <!-- Formulário de cadastro de nova unidade -->
           <form @submit.prevent="salvarUnidade" class="space-y-3 bg-slate-50 p-3.5 rounded-lg border border-slate-200">
             <span class="text-xs font-bold text-sky-900 uppercase block mb-1">Cadastrar Nova Unidade</span>
             <div>
@@ -374,7 +398,6 @@
             </div>
           </form>
 
-          <!-- Lista de Unidades Cadastradas com botão para exclusão -->
           <div>
             <div class="flex justify-between items-center mb-2">
               <span class="text-xs font-bold text-slate-700 uppercase">Unidades Existentes (<span x-text="unidades.length"></span>)</span>
@@ -437,6 +460,7 @@
           protocolo: '',
           origem: 'Ministério Público',
           unidade_id: '',
+          esfera_gestao: 'Administração Municipal (Direta)',
           tipo_fiscalizacao: 'Assistencial',
           grau_risco: 'Médio',
           prazo_fatal: '',
@@ -486,6 +510,7 @@
             protocolo: '',
             origem: 'Ministério Público',
             unidade_id: '',
+            esfera_gestao: 'Administração Municipal (Direta)',
             tipo_fiscalizacao: 'Assistencial',
             grau_risco: 'Médio',
             prazo_fatal: '',
@@ -559,6 +584,18 @@
           this.modalVisualizar = true;
         },
 
+        obterEsferaGestao(d) {
+          if (!d) return 'Município';
+          if (d.esfera_gestao) return d.esfera_gestao;
+          if (d.descricao && d.descricao.includes('[GESTÃO: Organização Social (OS)]')) {
+            return 'Organização Social (OS)';
+          }
+          if (d.origem === 'Organização Social') {
+            return 'Organização Social (OS)';
+          }
+          return 'Administração Municipal (Direta)';
+        },
+
         async salvarDemanda() {
           this.salvando = true;
           try {
@@ -578,7 +615,7 @@
             this.abrirModal = false;
             await this.carregarDemandas();
           } catch (err) {
-            alert('Erro ao gravar: Verifique se o endereço da API está configurado corretamente.');
+            alert('Erro ao gravar demanda: ' + err.message);
           } finally {
             this.salvando = false;
           }
@@ -624,10 +661,12 @@
 
         get demandasFiltradas() {
           if (!this.busca) return this.demandas;
+          const termo = this.busca.toLowerCase();
           return this.demandas.filter(d => 
-            (d.protocolo && d.protocolo.toLowerCase().includes(this.busca.toLowerCase())) ||
-            (d.unidade_nome && d.unidade_nome.toLowerCase().includes(this.busca.toLowerCase())) ||
-            (d.origem && d.origem.toLowerCase().includes(this.busca.toLowerCase()))
+            (d.protocolo && d.protocolo.toLowerCase().includes(termo)) ||
+            (d.unidade_nome && d.unidade_nome.toLowerCase().includes(termo)) ||
+            (d.origem && d.origem.toLowerCase().includes(termo)) ||
+            (this.obterEsferaGestao(d).toLowerCase().includes(termo))
           );
         },
 
