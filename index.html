@@ -48,7 +48,7 @@
     </template>
   </div>
 
-  <!-- Cabeçalho -->
+  <!-- Cabeçalho com Navegação de Abas -->
   <header class="bg-sky-950 text-white shadow-md border-b border-sky-800 no-print">
     <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-3">
       <div class="flex items-center space-x-3">
@@ -60,191 +60,323 @@
           <p class="text-xs text-sky-200 uppercase tracking-wider font-medium">Subsecretaria de Fiscalização e Avaliação da Saúde</p>
         </div>
       </div>
+
+      <!-- Seletor de Módulos (Fiscalização x Calendário) -->
+      <div class="flex items-center bg-sky-900 p-1 rounded-xl border border-sky-700">
+        <button 
+          @click="abaAtiva = 'fiscalizacoes'" 
+          :class="abaAtiva === 'fiscalizacoes' ? 'bg-sky-600 text-white shadow' : 'text-sky-200 hover:text-white'"
+          class="px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2">
+          <i class="fa-solid fa-clipboard-list"></i> Fiscalizações
+        </button>
+        <button 
+          @click="abaAtiva = 'calendario'" 
+          :class="abaAtiva === 'calendario' ? 'bg-sky-600 text-white shadow' : 'text-sky-200 hover:text-white'"
+          class="px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2">
+          <i class="fa-solid fa-calendar-days"></i> Calendário & Reuniões
+          <span x-show="reunioesFuturas.length > 0" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+        </button>
+      </div>
+
       <div class="flex items-center gap-2">
         <button @click="abrirModalNovaUnidade()" class="bg-sky-900 hover:bg-sky-800 border border-sky-700 text-white px-3.5 py-2 rounded-lg font-medium text-xs sm:text-sm flex items-center transition shadow-sm">
           <i class="fa-solid fa-hospital mr-2"></i> Unidades
         </button>
-        <button @click="abrirNovoModal()" class="bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm flex items-center transition shadow">
-          <i class="fa-solid fa-plus mr-2"></i> Nova Demanda
-        </button>
+        <template x-if="abaAtiva === 'fiscalizacoes'">
+          <button @click="abrirNovoModal()" class="bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm flex items-center transition shadow">
+            <i class="fa-solid fa-plus mr-2"></i> Nova Demanda
+          </button>
+        </template>
+        <template x-if="abaAtiva === 'calendario'">
+          <button @click="abrirModalReuniao()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm flex items-center transition shadow">
+            <i class="fa-solid fa-calendar-plus mr-2"></i> Agendar Reunião
+          </button>
+        </template>
       </div>
     </div>
   </header>
 
   <main class="max-w-7xl mx-auto px-4 py-8 no-print">
     
-    <!-- Banner de Reconexão / Render Wake-up -->
+    <!-- Banner de Reconexão Render -->
     <div x-show="conectandoRender" x-cloak class="mb-6 p-4 bg-amber-50 border-l-4 border-amber-500 text-amber-900 text-sm rounded-lg flex items-center justify-between shadow-sm">
       <div class="flex items-center gap-3">
         <i class="fa-solid fa-satellite-dish fa-bounce text-amber-600 text-lg"></i>
         <div>
-          <span class="font-bold">Inicializando Conexão com a API:</span> O servidor no Render está acordando do modo repouso. Isso pode levar até 40 segundos no primeiro acesso...
+          <span class="font-bold">Inicializando Conexão com a API:</span> O servidor no Render está acordando do modo repouso...
         </div>
       </div>
       <i class="fa-solid fa-spinner fa-spin text-amber-700"></i>
     </div>
 
-    <!-- Indicadores Rápidos -->
-    <section class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
-      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-        <div>
-          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Processos Totais</span>
-          <p class="text-2xl font-bold text-slate-800" x-text="demandas.length"></p>
-        </div>
-        <div class="p-3 bg-blue-50 text-blue-600 rounded-xl"><i class="fa-solid fa-folder-open text-xl"></i></div>
-      </div>
-      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-        <div>
-          <span class="text-xs font-semibold text-rose-500 uppercase tracking-wider">Prazos Vencidos</span>
-          <p class="text-2xl font-bold text-rose-600" x-text="contarVencidas()"></p>
-        </div>
-        <div class="p-3 bg-rose-50 text-rose-600 rounded-xl"><i class="fa-solid fa-calendar-xmark text-xl"></i></div>
-      </div>
-      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-        <div>
-          <span class="text-xs font-semibold text-amber-600 uppercase tracking-wider">Em Andamento</span>
-          <p class="text-2xl font-bold text-amber-600" x-text="demandas.filter(d => d.status === 'Em andamento' || d.status === 'Triagem').length"></p>
-        </div>
-        <div class="p-3 bg-amber-50 text-amber-600 rounded-xl"><i class="fa-solid fa-clock-rotate-left text-xl"></i></div>
-      </div>
-      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-        <div>
-          <span class="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Concluídas</span>
-          <p class="text-2xl font-bold text-emerald-600" x-text="demandas.filter(d => d.status === 'Concluída').length"></p>
-        </div>
-        <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl"><i class="fa-solid fa-circle-check text-xl"></i></div>
-      </div>
-    </section>
-
-    <!-- Tabela Principal com Filtros Rápidos e Exportação -->
-    <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <!-- ==================== ABA 1: FISCALIZAÇÕES ==================== -->
+    <div x-show="abaAtiva === 'fiscalizacoes'" x-cloak>
       
-      <!-- Barra Superior com Tabs e Busca -->
-      <div class="p-5 border-b border-slate-100 flex flex-col gap-4">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+      <!-- Indicadores Rápidos -->
+      <section class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
-            <h2 class="font-bold text-lg text-slate-800">Mapa Operacional de Fiscalizações</h2>
-            <p class="text-xs text-slate-500">Monitoramento de prazos fatais, órgãos solicitantes e conformidade hospitalar/ambulatorial</p>
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Processos Totais</span>
+            <p class="text-2xl font-bold text-slate-800" x-text="demandasApenasFiscalizacao.length"></p>
           </div>
-          <button @click="exportarParaCSV()" class="bg-emerald-700 hover:bg-emerald-600 text-white px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 shadow-sm transition">
-            <i class="fa-solid fa-file-excel text-sm"></i> Exportar Relatório (CSV)
-          </button>
+          <div class="p-3 bg-blue-50 text-blue-600 rounded-xl"><i class="fa-solid fa-folder-open text-xl"></i></div>
         </div>
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <span class="text-xs font-semibold text-rose-500 uppercase tracking-wider">Prazos Vencidos</span>
+            <p class="text-2xl font-bold text-rose-600" x-text="contarVencidas()"></p>
+          </div>
+          <div class="p-3 bg-rose-50 text-rose-600 rounded-xl"><i class="fa-solid fa-calendar-xmark text-xl"></i></div>
+        </div>
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <span class="text-xs font-semibold text-amber-600 uppercase tracking-wider">Em Andamento</span>
+            <p class="text-2xl font-bold text-amber-600" x-text="demandasApenasFiscalizacao.filter(d => d.status === 'Em andamento' || d.status === 'Triagem').length"></p>
+          </div>
+          <div class="p-3 bg-amber-50 text-amber-600 rounded-xl"><i class="fa-solid fa-clock-rotate-left text-xl"></i></div>
+        </div>
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <span class="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Concluídas</span>
+            <p class="text-2xl font-bold text-emerald-600" x-text="demandasApenasFiscalizacao.filter(d => d.status === 'Concluída').length"></p>
+          </div>
+          <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl"><i class="fa-solid fa-circle-check text-xl"></i></div>
+        </div>
+      </section>
 
-        <!-- Filtros Rápidos (Tabs) -->
-        <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
-          <div class="flex flex-wrap gap-1.5 text-xs font-medium">
-            <button @click="filtroRapido = 'todos'" :class="filtroRapido === 'todos' ? 'bg-sky-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1.5 rounded-lg transition">Todos</button>
-            <button @click="filtroRapido = 'vencidos'" :class="filtroRapido === 'vencidos' ? 'bg-rose-700 text-white' : 'bg-slate-100 text-rose-700 hover:bg-rose-50'" class="px-3 py-1.5 rounded-lg transition flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-rose-500 inline-block"></span> Vencidos / Em Alerta
+      <!-- Tabela Principal -->
+      <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        
+        <div class="p-5 border-b border-slate-100 flex flex-col gap-4">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+              <h2 class="font-bold text-lg text-slate-800">Mapa Operacional de Fiscalizações</h2>
+              <p class="text-xs text-slate-500">Monitoramento de prazos fatais, órgãos solicitantes e conformidade hospitalar/ambulatorial</p>
+            </div>
+            <button @click="exportarParaCSV()" class="bg-emerald-700 hover:bg-emerald-600 text-white px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 shadow-sm transition">
+              <i class="fa-solid fa-file-excel text-sm"></i> Exportar Relatório (CSV)
             </button>
-            <button @click="filtroRapido = 'andamento'" :class="filtroRapido === 'andamento' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1.5 rounded-lg transition">Em Andamento</button>
-            <button @click="filtroRapido = 'concluidas'" :class="filtroRapido === 'concluidas' ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1.5 rounded-lg transition">Concluídas</button>
-            <button @click="filtroRapido = 'os'" :class="filtroRapido === 'os' ? 'bg-purple-800 text-white' : 'bg-slate-100 text-purple-700 hover:bg-purple-50'" class="px-3 py-1.5 rounded-lg transition">Só O.S.</button>
-            <button @click="filtroRapido = 'municipio'" :class="filtroRapido === 'municipio' ? 'bg-sky-700 text-white' : 'bg-slate-100 text-sky-700 hover:bg-sky-50'" class="px-3 py-1.5 rounded-lg transition">Só Município</button>
           </div>
 
-          <div class="w-full sm:w-72 relative">
-            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
-            <input type="text" x-model="busca" placeholder="Pesquisar protocolo, unidade..." class="w-full pl-8 pr-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-sky-500">
+          <!-- Filtros Rápidos (Tabs) -->
+          <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+            <div class="flex flex-wrap gap-1.5 text-xs font-medium">
+              <button @click="filtroRapido = 'todos'" :class="filtroRapido === 'todos' ? 'bg-sky-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1.5 rounded-lg transition">Todos</button>
+              <button @click="filtroRapido = 'vencidos'" :class="filtroRapido === 'vencidos' ? 'bg-rose-700 text-white' : 'bg-slate-100 text-rose-700 hover:bg-rose-50'" class="px-3 py-1.5 rounded-lg transition flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-rose-500 inline-block"></span> Vencidos / Em Alerta
+              </button>
+              <button @click="filtroRapido = 'andamento'" :class="filtroRapido === 'andamento' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1.5 rounded-lg transition">Em Andamento</button>
+              <button @click="filtroRapido = 'concluidas'" :class="filtroRapido === 'concluidas' ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1.5 rounded-lg transition">Concluídas</button>
+              <button @click="filtroRapido = 'os'" :class="filtroRapido === 'os' ? 'bg-purple-800 text-white' : 'bg-slate-100 text-purple-700 hover:bg-purple-50'" class="px-3 py-1.5 rounded-lg transition">Só O.S.</button>
+              <button @click="filtroRapido = 'municipio'" :class="filtroRapido === 'municipio' ? 'bg-sky-700 text-white' : 'bg-slate-100 text-sky-700 hover:bg-sky-50'" class="px-3 py-1.5 rounded-lg transition">Só Município</button>
+            </div>
+
+            <div class="w-full sm:w-72 relative">
+              <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+              <input type="text" x-model="busca" placeholder="Pesquisar protocolo, unidade..." class="w-full pl-8 pr-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-sky-500">
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Tabela -->
-      <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse text-sm">
-          <thead>
-            <tr class="bg-slate-50 text-slate-600 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
-              <th class="p-4">Protocolo / Origem</th>
-              <th class="p-4">Unidade Alvo</th>
-              <th class="p-4">Gestão</th>
-              <th class="p-4">Eixo Fiscalizado</th>
-              <th class="p-4">Risco</th>
-              <th class="p-4">Prazo Fatal / Contagem</th>
-              <th class="p-4">Status</th>
-              <th class="p-4 text-center">Ações</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
-            <template x-if="carregando">
-              <tr>
-                <td colspan="8" class="p-8 text-center text-slate-500">
-                  <i class="fa-solid fa-spinner fa-spin mr-2 text-sky-600"></i> Sincronizando com a base de dados...
-                </td>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr class="bg-slate-50 text-slate-600 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
+                <th class="p-4">Protocolo / Origem</th>
+                <th class="p-4">Unidade Alvo</th>
+                <th class="p-4">Gestão</th>
+                <th class="p-4">Eixo Fiscalizado</th>
+                <th class="p-4">Risco</th>
+                <th class="p-4">Prazo Fatal / Contagem</th>
+                <th class="p-4">Status</th>
+                <th class="p-4 text-center">Ações</th>
               </tr>
-            </template>
-            <template x-for="d in demandasFiltradas" :key="d.id">
-              <tr class="hover:bg-slate-50 transition">
-                <td class="p-4">
-                  <div class="font-bold text-slate-800" x-text="d.protocolo"></div>
-                  <span class="text-xs text-slate-500" x-text="d.origem"></span>
-                </td>
-                <td class="p-4">
-                  <div class="font-medium text-slate-700" x-text="d.unidade_nome || 'Unidade Geral'"></div>
-                </td>
-                <td class="p-4">
-                  <span class="px-2 py-0.5 rounded text-xs font-semibold"
-                    :class="obterEsferaGestao(d) === 'Organização Social (OS)' ? 'bg-purple-100 text-purple-700 border border-purple-200' : 'bg-sky-100 text-sky-700 border border-sky-200'"
-                    x-text="obterEsferaGestao(d)">
-                  </span>
-                </td>
-                <td class="p-4">
-                  <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200" x-text="d.tipo_fiscalizacao"></span>
-                </td>
-                <td class="p-4">
-                  <span class="px-2 py-1 rounded text-xs font-bold"
-                    :class="{
-                      'bg-rose-100 text-rose-700': d.grau_risco === 'Crítico',
-                      'bg-amber-100 text-amber-700': d.grau_risco === 'Alto',
-                      'bg-blue-100 text-blue-700': d.grau_risco === 'Médio',
-                      'bg-slate-100 text-slate-600': d.grau_risco === 'Baixo'
-                    }" x-text="d.grau_risco"></span>
-                </td>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <template x-if="carregando">
+                <tr>
+                  <td colspan="8" class="p-8 text-center text-slate-500">
+                    <i class="fa-solid fa-spinner fa-spin mr-2 text-sky-600"></i> Sincronizando com a base de dados...
+                  </td>
+                </tr>
+              </template>
+              <template x-for="d in demandasFiltradas" :key="d.id">
+                <tr class="hover:bg-slate-50 transition">
+                  <td class="p-4">
+                    <div class="font-bold text-slate-800" x-text="d.protocolo"></div>
+                    <span class="text-xs text-slate-500" x-text="d.origem"></span>
+                  </td>
+                  <td class="p-4">
+                    <div class="font-medium text-slate-700" x-text="d.unidade_nome || 'Unidade Geral'"></div>
+                  </td>
+                  <td class="p-4">
+                    <span class="px-2 py-0.5 rounded text-xs font-semibold"
+                      :class="obterEsferaGestao(d) === 'Organização Social (OS)' ? 'bg-purple-100 text-purple-700 border border-purple-200' : 'bg-sky-100 text-sky-700 border border-sky-200'"
+                      x-text="obterEsferaGestao(d)">
+                    </span>
+                  </td>
+                  <td class="p-4">
+                    <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200" x-text="d.tipo_fiscalizacao"></span>
+                  </td>
+                  <td class="p-4">
+                    <span class="px-2 py-1 rounded text-xs font-bold"
+                      :class="{
+                        'bg-rose-100 text-rose-700': d.grau_risco === 'Crítico',
+                        'bg-amber-100 text-amber-700': d.grau_risco === 'Alto',
+                        'bg-blue-100 text-blue-700': d.grau_risco === 'Médio',
+                        'bg-slate-100 text-slate-600': d.grau_risco === 'Baixo'
+                      }" x-text="d.grau_risco"></span>
+                  </td>
+                  
+                  <td class="p-4">
+                    <div class="font-mono text-xs font-semibold" x-text="formatarData(d.prazo_fatal)"></div>
+                    <div class="mt-1" x-html="renderizarBadgePrazo(d.prazo_fatal, d.status)"></div>
+                  </td>
+
+                  <td class="p-4">
+                    <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
+                      :class="d.status === 'Concluída' ? 'bg-emerald-100 text-emerald-700' : (d.status === 'Em andamento' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700')"
+                      x-text="d.status"></span>
+                  </td>
+                  <td class="p-4 text-center">
+                    <div class="flex items-center justify-center gap-1.5 flex-wrap">
+                      <button @click="visualizarDemanda(d)" class="text-slate-700 hover:text-sky-700 text-xs font-semibold px-2 py-1 border border-slate-300 rounded hover:bg-slate-100 transition flex items-center gap-1" title="Visualizar e Despachar">
+                        <i class="fa-regular fa-eye"></i> Detalhes
+                      </button>
+                      <button @click="avancarStatus(d)" class="text-sky-600 hover:text-sky-800 text-xs font-semibold px-2 py-1 border border-sky-300 rounded hover:bg-sky-50 transition" title="Avançar Status">
+                        Mudar Status
+                      </button>
+                      <button @click="excluirDemanda(d.id, d.protocolo)" class="text-xs bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white border border-rose-200 px-2 py-1 rounded transition flex items-center gap-1" title="Excluir Demanda">
+                        <i class="fa-regular fa-trash-can"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </template>
+              <template x-if="!carregando && demandasFiltradas.length === 0">
+                <tr>
+                  <td colspan="8" class="p-8 text-center text-slate-400">
+                    Nenhuma demanda encontrada para os critérios selecionados.
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- ==================== ABA 2: CALENDÁRIO & REUNIÕES ==================== -->
+    <div x-show="abaAtiva === 'calendario'" x-cloak class="space-y-6">
+      
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Grade do Calendário Mensal (2 Colunas) -->
+        <div class="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+          <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
+            <div class="flex items-center gap-3">
+              <span class="p-2 bg-emerald-100 text-emerald-800 rounded-lg"><i class="fa-solid fa-calendar-day text-lg"></i></span>
+              <h2 class="font-bold text-base text-slate-800 capitalize" x-text="nomeMesAtual"></h2>
+            </div>
+            <div class="flex items-center gap-1">
+              <button @click="mudarMes(-1)" class="p-2 border rounded-lg hover:bg-slate-100 text-slate-600 text-xs"><i class="fa-solid fa-chevron-left"></i></button>
+              <button @click="irParaMesAtual()" class="px-3 py-1.5 border rounded-lg hover:bg-slate-100 text-slate-700 text-xs font-semibold">Hoje</button>
+              <button @click="mudarMes(1)" class="p-2 border rounded-lg hover:bg-slate-100 text-slate-600 text-xs"><i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+          </div>
+
+          <!-- Dias da Semana -->
+          <div class="grid grid-cols-7 gap-1 text-center font-bold text-xs text-slate-500 mb-2">
+            <div>Dom</div><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div>
+          </div>
+
+          <!-- Grade dos Dias do Mês -->
+          <div class="grid grid-cols-7 gap-1">
+            <template x-for="(diaObj, idx) in diasCalendario" :key="idx">
+              <div 
+                @click="selecionarDiaCalendario(diaObj.dataIso)"
+                class="min-h-[78px] p-1.5 border rounded-lg flex flex-col justify-between transition cursor-pointer"
+                :class="{
+                  'bg-slate-50 opacity-40': !diaObj.mesmoMes,
+                  'border-emerald-500 bg-emerald-50/40': diaObj.dataIso === diaSelecionadoIso,
+                  'border-sky-300 ring-2 ring-sky-200': diaObj.ehHoje,
+                  'hover:border-slate-400 bg-white': diaObj.mesmoMes && diaObj.dataIso !== diaSelecionadoIso
+                }">
                 
-                <!-- Prazo Fatal com Badge de Dias Restantes -->
-                <td class="p-4">
-                  <div class="font-mono text-xs font-semibold" x-text="formatarData(d.prazo_fatal)"></div>
-                  <div class="mt-1" x-html="renderizarBadgePrazo(d.prazo_fatal, d.status)"></div>
-                </td>
+                <div class="flex justify-between items-center">
+                  <span class="text-xs font-bold" :class="diaObj.ehHoje ? 'text-sky-700 underline' : 'text-slate-700'" x-text="diaObj.numeroDia"></span>
+                  <span x-show="obterReunioesDoDia(diaObj.dataIso).length > 0" class="text-[10px] font-bold px-1.5 py-0.2 bg-emerald-600 text-white rounded-full" x-text="obterReunioesDoDia(diaObj.dataIso).length"></span>
+                </div>
 
-                <td class="p-4">
-                  <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
-                    :class="d.status === 'Concluída' ? 'bg-emerald-100 text-emerald-700' : (d.status === 'Em andamento' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700')"
-                    x-text="d.status"></span>
-                </td>
-                <td class="p-4 text-center">
-                  <div class="flex items-center justify-center gap-1.5 flex-wrap">
-                    <button @click="visualizarDemanda(d)" class="text-slate-700 hover:text-sky-700 text-xs font-semibold px-2 py-1 border border-slate-300 rounded hover:bg-slate-100 transition flex items-center gap-1" title="Visualizar e Despachar">
-                      <i class="fa-regular fa-eye"></i> Detalhes
-                    </button>
-                    <button @click="avancarStatus(d)" class="text-sky-600 hover:text-sky-800 text-xs font-semibold px-2 py-1 border border-sky-300 rounded hover:bg-sky-50 transition" title="Avançar Status">
-                      Mudar Status
-                    </button>
-                    <button @click="excluirDemanda(d.id, d.protocolo)" class="text-xs bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white border border-rose-200 px-2 py-1 rounded transition flex items-center gap-1" title="Excluir Demanda">
-                      <i class="fa-regular fa-trash-can"></i>
-                    </button>
+                <!-- Prévia de Reuniões no dia -->
+                <div class="space-y-0.5 mt-1 overflow-hidden">
+                  <template x-for="r in obterReunioesDoDia(diaObj.dataIso).slice(0, 2)" :key="r.id">
+                    <div class="text-[10px] truncate px-1 py-0.5 rounded bg-emerald-100 text-emerald-800 font-medium" :title="r.protocolo" x-text="r.protocolo"></div>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Painel Lateral: Reuniões do Dia Selecionado ou Próximas (1 Coluna) -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-center mb-3 pb-2 border-b">
+              <span class="text-xs font-bold text-slate-700 uppercase">
+                <i class="fa-solid fa-clock mr-1 text-emerald-600"></i>
+                <span x-text="diaSelecionadoIso ? 'Compromissos em ' + formatarData(diaSelecionadoIso) : 'Próximas Reuniões'"></span>
+              </span>
+              <button @click="abrirModalReuniao(diaSelecionadoIso)" class="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1">
+                <i class="fa-solid fa-plus-circle"></i> Agendar
+              </button>
+            </div>
+
+            <!-- Lista de Reuniões -->
+            <div class="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+              <template x-for="r in reunioesFiltradasLateral" :key="r.id">
+                <div class="p-3 bg-slate-50 hover:bg-emerald-50/50 border rounded-xl transition space-y-1.5">
+                  <div class="flex justify-between items-start">
+                    <h4 class="font-bold text-xs text-slate-800 leading-snug" x-text="r.protocolo"></h4>
+                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800" x-text="formatarData(r.prazo_fatal)"></span>
                   </div>
-                </td>
-              </tr>
-            </template>
-            <template x-if="!carregando && demandasFiltradas.length === 0">
-              <tr>
-                <td colspan="8" class="p-8 text-center text-slate-400">
-                  Nenhuma demanda encontrada para os critérios selecionados.
-                </td>
-              </tr>
-            </template>
-          </tbody>
-        </table>
+
+                  <p class="text-xs text-slate-600 line-clamp-2" x-text="r.descricao || 'Pauta não informada.'"></p>
+
+                  <div class="flex justify-between items-center text-[11px] text-slate-500 pt-1 border-t border-slate-200/60">
+                    <span class="truncate max-w-[150px]"><i class="fa-solid fa-user-tie mr-1 text-slate-400"></i><span x-text="r.responsavel_atribuido || 'Equipe'"></span></span>
+                    <div class="flex gap-2">
+                      <button @click="visualizarDemanda(r)" class="text-sky-700 hover:underline font-semibold">Detalhes</button>
+                      <button @click="excluirDemanda(r.id, r.protocolo)" class="text-rose-600 hover:underline">Excluir</button>
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+              <template x-if="reunioesFiltradasLateral.length === 0">
+                <div class="p-8 text-center text-slate-400 text-xs">
+                  <i class="fa-regular fa-calendar-xmark text-2xl mb-2 text-slate-300 block"></i>
+                  Nenhuma reunião agendada para este dia.
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <div class="pt-4 border-t mt-4">
+            <button @click="abrirModalReuniao(diaSelecionadoIso)" class="w-full py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm">
+              <i class="fa-solid fa-calendar-plus"></i> Marcar Nova Reunião
+            </button>
+          </div>
+        </div>
+
       </div>
-    </section>
+
+    </div>
 
     <!-- Modal de Visualização, Impressão e Despachos -->
     <div x-show="modalVisualizar" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak @keydown.escape.window="modalVisualizar = false">
       <div class="bg-white rounded-xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]" @click.away="modalVisualizar = false">
         
-        <!-- Área que é impressa -->
         <div id="area-impressao" class="overflow-y-auto space-y-4 text-sm pr-1 flex-1">
           <div class="flex justify-between items-center border-b pb-3 mb-2">
             <div class="flex items-center gap-3">
@@ -261,7 +393,7 @@
 
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3" x-if="demandaVisualizada">
             <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
-              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Origem do Pedido</span>
+              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Origem / Solicitante</span>
               <span class="font-semibold text-slate-800" x-text="demandaVisualizada.origem || 'Não informada'"></span>
             </div>
             <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
@@ -279,7 +411,7 @@
 
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3" x-if="demandaVisualizada">
             <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
-              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Eixo Fiscalizado</span>
+              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Tipo / Eixo</span>
               <span class="font-semibold text-slate-800" x-text="demandaVisualizada.tipo_fiscalizacao"></span>
             </div>
             <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
@@ -294,7 +426,7 @@
                 x-text="demandaVisualizada.grau_risco"></span>
             </div>
             <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
-              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Status Atual</span>
+              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Status</span>
               <span class="inline-block px-2 py-0.5 rounded text-xs font-bold"
                 :class="demandaVisualizada.status === 'Concluída' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'"
                 x-text="demandaVisualizada.status"></span>
@@ -303,30 +435,29 @@
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" x-if="demandaVisualizada">
             <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
-              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Prazo Limite / Fatal</span>
+              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Data Agendada / Prazo</span>
               <span class="font-semibold font-mono text-xs" x-text="formatarData(demandaVisualizada.prazo_fatal)"></span>
             </div>
             <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
-              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Auditor / Comissão Responsável</span>
+              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Responsável</span>
               <span class="font-semibold text-slate-800" x-text="demandaVisualizada.responsavel_atribuido || 'Não atribuído'"></span>
             </div>
           </div>
 
-          <!-- Histórico / Descrição e Despachos -->
           <div class="bg-slate-50 p-3.5 rounded-lg border border-slate-200" x-if="demandaVisualizada">
-            <span class="text-xs text-slate-600 block mb-1 font-bold uppercase tracking-wider">Histórico do Processo & Despachos de Fiscalização</span>
+            <span class="text-xs text-slate-600 block mb-1 font-bold uppercase tracking-wider">Pauta / Objeto & Despachos</span>
             <div class="text-slate-800 bg-white p-3.5 rounded-lg border border-slate-200 text-xs sm:text-sm whitespace-pre-wrap leading-relaxed min-h-[90px] font-sans" x-text="demandaVisualizada.descricao || 'Sem descrição cadastrada.'"></div>
           </div>
 
-          <!-- Caixa de Adicionar Despacho (Não sai na impressão) -->
+          <!-- Caixa de Despacho -->
           <div class="bg-sky-50 border border-sky-200 p-3.5 rounded-lg no-print">
-            <span class="text-xs font-bold text-sky-900 block mb-1.5"><i class="fa-solid fa-pen-to-square mr-1"></i> Inserir Novo Despacho / Andamento</span>
+            <span class="text-xs font-bold text-sky-900 block mb-1.5"><i class="fa-solid fa-pen-to-square mr-1"></i> Inserir Despacho / Andamento</span>
             <div class="flex flex-col gap-2">
-              <textarea x-model="novoDespachoTexto" rows="2" placeholder="Ex: Diligência in loco realizada. Notificada a direção sobre a escala médica..." class="w-full text-xs p-2.5 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"></textarea>
+              <textarea x-model="novoDespachoTexto" rows="2" placeholder="Ex: Alinhamento concluído com a diretoria..." class="w-full text-xs p-2.5 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"></textarea>
               <div class="flex justify-between items-center">
-                <input type="text" x-model="novoDespachoAutor" placeholder="Nome do Auditor / Fiscal" class="text-xs border px-2.5 py-1.5 rounded-lg bg-white w-48 focus:outline-none focus:ring-2 focus:ring-sky-500">
+                <input type="text" x-model="novoDespachoAutor" placeholder="Autor do registro" class="text-xs border px-2.5 py-1.5 rounded-lg bg-white w-48 focus:outline-none focus:ring-2 focus:ring-sky-500">
                 <button @click="salvarDespacho()" :disabled="salvandoDespacho" class="bg-sky-800 hover:bg-sky-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center transition shadow-sm">
-                  <span x-show="!salvandoDespacho"><i class="fa-solid fa-paper-plane mr-1"></i> Gravar Despacho</span>
+                  <span x-show="!salvandoDespacho"><i class="fa-solid fa-paper-plane mr-1"></i> Gravar</span>
                   <span x-show="salvandoDespacho"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Gravando...</span>
                 </button>
               </div>
@@ -336,7 +467,7 @@
 
         <div class="border-t pt-4 mt-3 flex justify-between items-center no-print">
           <button type="button" @click="imprimirFicha()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1.5 border border-slate-300">
-            <i class="fa-solid fa-print"></i> Imprimir Ficha / Salvar PDF
+            <i class="fa-solid fa-print"></i> Imprimir Ficha / PDF
           </button>
           <button type="button" @click="modalVisualizar = false" class="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold transition">
             Fechar
@@ -345,7 +476,7 @@
       </div>
     </div>
 
-    <!-- Modal de Cadastro de Demanda -->
+    <!-- Modal de Cadastro de Demanda (Fiscalização) -->
     <div x-show="abrirModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
       <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-slate-200" @click.away="abrirModal = false">
         <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
@@ -444,8 +575,68 @@
           <div class="flex justify-end gap-2 pt-4 border-t">
             <button type="button" @click="abrirModal = false" class="px-4 py-2 border rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
             <button type="submit" :disabled="salvando" class="px-4 py-2 bg-sky-700 text-white rounded-lg text-xs font-bold hover:bg-sky-600 flex items-center shadow">
-              <span x-show="!salvando">Gravar no Sistema</span>
+              <span x-show="!salvando">Gravar Demanda</span>
               <span x-show="salvando"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Gravando...</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL ESPECÍFICO: AGENDAR REUNIÃO -->
+    <div x-show="abrirModalNovaReuniao" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
+      <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-slate-200" @click.away="abrirModalNovaReuniao = false">
+        <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
+          <span class="p-1.5 bg-emerald-100 text-emerald-800 rounded-lg text-sm"><i class="fa-solid fa-calendar-plus"></i></span>
+          Agendar Reunião / Alinhamento
+        </h3>
+
+        <form @submit.prevent="salvarReuniao" class="space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Título / Pauta da Reunião *</label>
+            <input type="text" x-model="formReuniao.protocolo" required placeholder="Ex: Alinhamento com Direção da UPA sobre escalas" class="w-full border rounded px-3 py-1.5 text-sm">
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Data da Reunião *</label>
+              <input type="date" x-model="formReuniao.prazo_fatal" required class="w-full border rounded px-3 py-1.5 text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Esfera Envolvida</label>
+              <select x-model="formReuniao.esfera_gestao" class="w-full border rounded px-3 py-1.5 text-sm bg-white font-medium">
+                <option value="Administração Municipal (Direta)">Administração Municipal (Direta)</option>
+                <option value="Organização Social (OS)">Organização Social (OS)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Unidade Vinculada</label>
+              <select x-model="formReuniao.unidade_id" class="w-full border rounded px-3 py-1.5 text-sm bg-white">
+                <option value="">Geral / Sede da Subsecretaria</option>
+                <template x-for="u in unidades" :key="u.id">
+                  <option :value="u.id" x-text="u.nome_fantasia"></option>
+                </template>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Responsável / Condutor</label>
+              <input type="text" x-model="formReuniao.responsavel_atribuido" placeholder="Ex: Rafael Reis" class="w-full border rounded px-3 py-1.5 text-sm">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Pauta Detalhada / Participantes</label>
+            <textarea x-model="formReuniao.descricao" rows="3" placeholder="Ex: Pauta: Contratos de gestão, prestação de contas mensal e metas assistenciais." class="w-full border rounded px-3 py-1.5 text-sm"></textarea>
+          </div>
+
+          <div class="flex justify-end gap-2 pt-4 border-t">
+            <button type="button" @click="abrirModalNovaReuniao = false" class="px-4 py-2 border rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
+            <button type="submit" :disabled="salvando" class="px-4 py-2 bg-emerald-700 text-white rounded-lg text-xs font-bold hover:bg-emerald-600 flex items-center shadow">
+              <span x-show="!salvando">Confirmar Agendamento</span>
+              <span x-show="salvando"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Agendando...</span>
             </button>
           </div>
         </form>
@@ -539,7 +730,9 @@
 
     function fisaApp() {
       return {
+        abaAtiva: 'fiscalizacoes', // 'fiscalizacoes' ou 'calendario'
         abrirModal: false,
+        abrirModalNovaReuniao: false,
         abrirModalUnidade: false,
         modalVisualizar: false,
         demandaVisualizada: null,
@@ -554,6 +747,10 @@
         unidades: [],
         toasts: [],
         
+        // Estado do Calendário
+        dataCalendarioAtual: new Date(),
+        diaSelecionadoIso: null,
+
         novoDespachoTexto: '',
         novoDespachoAutor: 'Fiscalização',
 
@@ -564,6 +761,18 @@
           esfera_gestao: 'Administração Municipal (Direta)',
           tipo_fiscalizacao: 'Assistencial',
           grau_risco: 'Médio',
+          prazo_fatal: '',
+          descricao: '',
+          responsavel_atribuido: ''
+        },
+
+        formReuniao: {
+          protocolo: '',
+          origem: 'Reunião de Alinhamento',
+          unidade_id: '',
+          esfera_gestao: 'Administração Municipal (Direta)',
+          tipo_fiscalizacao: 'Reunião',
+          grau_risco: 'Baixo',
           prazo_fatal: '',
           descricao: '',
           responsavel_atribuido: ''
@@ -584,7 +793,6 @@
 
         async iniciarApp() {
           this.carregando = true;
-          // Verifica se a API do Render está acordada
           const timeoutId = setTimeout(() => {
             if (this.carregando) this.conectandoRender = true;
           }, 2500);
@@ -607,7 +815,7 @@
             if (!res.ok) throw new Error();
             this.demandas = await res.json();
           } catch (err) {
-            this.mostrarToast('API em hibernação ou erro de conexão. Tentando reconectar...', 'erro');
+            this.mostrarToast('Erro ao sincronizar dados com o servidor.', 'erro');
           }
         },
 
@@ -618,6 +826,160 @@
           } catch (e) {
             console.error(e);
           }
+        },
+
+        // --- LÓGICA DO CALENDÁRIO ---
+        get nomeMesAtual() {
+          return this.dataCalendarioAtual.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+        },
+
+        mudarMes(delta) {
+          const d = new Date(this.dataCalendarioAtual);
+          d.setMonth(d.getMonth() + delta);
+          this.dataCalendarioAtual = d;
+        },
+
+        irParaMesAtual() {
+          this.dataCalendarioAtual = new Date();
+          this.diaSelecionadoIso = null;
+        },
+
+        selecionarDiaCalendario(dataIso) {
+          this.diaSelecionadoIso = dataIso;
+        },
+
+        get diasCalendario() {
+          const ano = this.dataCalendarioAtual.getFullYear();
+          const mes = this.dataCalendarioAtual.getMonth();
+
+          const primeiroDia = new Date(ano, mes, 1);
+          const ultimoDia = new Date(ano, mes + 1, 0);
+
+          const dias = [];
+          const diaSemanaInicio = primeiroDia.getDay(); // 0 (Dom) a 6 (Sab)
+
+          // Dias do mês anterior para completar a semana
+          const ultimoDiaMesAnterior = new Date(ano, mes, 0).getDate();
+          for (let i = diaSemanaInicio - 1; i >= 0; i--) {
+            const diaNum = ultimoDiaMesAnterior - i;
+            const dataIso = new Date(ano, mes - 1, diaNum).toISOString().substring(0, 10);
+            dias.push({ numeroDia: diaNum, dataIso, mesmoMes: false, ehHoje: false });
+          }
+
+          // Dias do mês atual
+          const hojeIso = new Date().toISOString().substring(0, 10);
+          for (let i = 1; i <= ultimoDia.getDate(); i++) {
+            const dataIso = `${ano}-${String(mes + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+            dias.push({ 
+              numeroDia: i, 
+              dataIso, 
+              mesmoMes: true, 
+              ehHoje: dataIso === hojeIso 
+            });
+          }
+
+          // Dias do próximo mês para completar 35 ou 42 células
+          const totalCelulas = dias.length <= 35 ? 35 : 42;
+          const restantes = totalCelulas - dias.length;
+          for (let i = 1; i <= restantes; i++) {
+            const dataIso = new Date(ano, mes + 1, i).toISOString().substring(0, 10);
+            dias.push({ numeroDia: i, dataIso, mesmoMes: false, ehHoje: false });
+          }
+
+          return dias;
+        },
+
+        get reunioes() {
+          return this.demandas.filter(d => d.tipo_fiscalizacao === 'Reunião');
+        },
+
+        get reunioesFuturas() {
+          const hojeIso = new Date().toISOString().substring(0, 10);
+          return this.reunioes.filter(r => (r.prazo_fatal || '') >= hojeIso && r.status !== 'Concluída');
+        },
+
+        obterReunioesDoDia(dataIso) {
+          if (!dataIso) return [];
+          return this.reunioes.filter(r => r.prazo_fatal && r.prazo_fatal.substring(0, 10) === dataIso);
+        },
+
+        get reunioesFiltradasLateral() {
+          if (this.diaSelecionadoIso) {
+            return this.obterReunioesDoDia(this.diaSelecionadoIso);
+          }
+          // Mostra as próximas reuniões por padrão
+          return this.reunioes.slice(0, 8);
+        },
+
+        abrirModalReuniao(dataPrevia = null) {
+          this.formReuniao = {
+            protocolo: '',
+            origem: 'Reunião de Alinhamento',
+            unidade_id: '',
+            esfera_gestao: 'Administração Municipal (Direta)',
+            tipo_fiscalizacao: 'Reunião',
+            grau_risco: 'Baixo',
+            prazo_fatal: dataPrevia || new Date().toISOString().substring(0, 10),
+            descricao: '',
+            responsavel_atribuido: ''
+          };
+          this.abrirModalNovaReuniao = true;
+        },
+
+        async salvarReuniao() {
+          this.salvando = true;
+          try {
+            const payload = {
+              ...this.formReuniao,
+              unidade_id: this.formReuniao.unidade_id || null
+            };
+
+            const res = await fetch(`${API_URL}/api/demandas`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) throw new Error('Falha ao agendar reunião.');
+
+            this.abrirModalNovaReuniao = false;
+            await this.carregarDemandas();
+            this.mostrarToast(`Reunião "${payload.protocolo}" agendada!`);
+          } catch (err) {
+            this.mostrarToast(err.message, 'erro');
+          } finally {
+            this.salvando = false;
+          }
+        },
+
+        // --- FILTROS E FISCALIZAÇÕES ---
+        get demandasApenasFiscalizacao() {
+          return this.demandas.filter(d => d.tipo_fiscalizacao !== 'Reunião');
+        },
+
+        get demandasFiltradas() {
+          let lista = this.demandasApenasFiscalizacao;
+
+          if (this.filtroRapido === 'vencidos') {
+            lista = lista.filter(d => this.estaVencido(d.prazo_fatal, d.status));
+          } else if (this.filtroRapido === 'andamento') {
+            lista = lista.filter(d => d.status === 'Em andamento' || d.status === 'Triagem');
+          } else if (this.filtroRapido === 'concluidas') {
+            lista = lista.filter(d => d.status === 'Concluída');
+          } else if (this.filtroRapido === 'os') {
+            lista = lista.filter(d => this.obterEsferaGestao(d) === 'Organização Social (OS)');
+          } else if (this.filtroRapido === 'municipio') {
+            lista = lista.filter(d => this.obterEsferaGestao(d) === 'Administração Municipal (Direta)');
+          }
+
+          if (!this.busca) return lista;
+          const termo = this.busca.toLowerCase();
+          return lista.filter(d => 
+            (d.protocolo && d.protocolo.toLowerCase().includes(termo)) ||
+            (d.unidade_nome && d.unidade_nome.toLowerCase().includes(termo)) ||
+            (d.origem && d.origem.toLowerCase().includes(termo)) ||
+            (this.obterEsferaGestao(d).toLowerCase().includes(termo))
+          );
         },
 
         abrirNovoModal() {
@@ -696,7 +1058,7 @@
 
         async salvarDespacho() {
           if (!this.novoDespachoTexto.trim()) {
-            this.mostrarToast('Digite o texto do despacho antes de gravar.', 'erro');
+            this.mostrarToast('Digite o despacho antes de gravar.', 'erro');
             return;
           }
 
@@ -716,7 +1078,6 @@
             const atualizada = await res.json();
             this.demandaVisualizada.descricao = atualizada.descricao;
             
-            // Atualiza na listagem principal
             const idx = this.demandas.findIndex(d => d.id === this.demandaVisualizada.id);
             if (idx !== -1) this.demandas[idx].descricao = atualizada.descricao;
 
@@ -820,7 +1181,7 @@
         },
 
         async excluirDemanda(id, protocolo) {
-          if (!confirm(`Deseja realmente excluir permanentemente a demanda ${protocolo}?`)) return;
+          if (!confirm(`Deseja realmente excluir permanentemente "${protocolo}"?`)) return;
 
           try {
             const res = await fetch(`${API_URL}/api/demandas/${id}`, { method: 'DELETE' });
@@ -830,40 +1191,14 @@
             }
 
             await this.carregarDemandas();
-            this.mostrarToast(`Demanda ${protocolo} excluída!`);
+            this.mostrarToast(`Registro "${protocolo}" excluído!`);
           } catch (error) {
             this.mostrarToast(error.message, 'erro');
           }
         },
 
-        get demandasFiltradas() {
-          let lista = this.demandas;
-
-          // Aplicação das Tabs Rápidas
-          if (this.filtroRapido === 'vencidos') {
-            lista = lista.filter(d => this.estaVencido(d.prazo_fatal, d.status));
-          } else if (this.filtroRapido === 'andamento') {
-            lista = lista.filter(d => d.status === 'Em andamento' || d.status === 'Triagem');
-          } else if (this.filtroRapido === 'concluidas') {
-            lista = lista.filter(d => d.status === 'Concluída');
-          } else if (this.filtroRapido === 'os') {
-            lista = lista.filter(d => this.obterEsferaGestao(d) === 'Organização Social (OS)');
-          } else if (this.filtroRapido === 'municipio') {
-            lista = lista.filter(d => this.obterEsferaGestao(d) === 'Administração Municipal (Direta)');
-          }
-
-          if (!this.busca) return lista;
-          const termo = this.busca.toLowerCase();
-          return lista.filter(d => 
-            (d.protocolo && d.protocolo.toLowerCase().includes(termo)) ||
-            (d.unidade_nome && d.unidade_nome.toLowerCase().includes(termo)) ||
-            (d.origem && d.origem.toLowerCase().includes(termo)) ||
-            (this.obterEsferaGestao(d).toLowerCase().includes(termo))
-          );
-        },
-
         contarVencidas() {
-          return this.demandas.filter(d => this.estaVencido(d.prazo_fatal, d.status)).length;
+          return this.demandasApenasFiscalizacao.filter(d => this.estaVencido(d.prazo_fatal, d.status)).length;
         },
 
         formatarData(dataIso) {
