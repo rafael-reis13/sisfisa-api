@@ -10,24 +10,27 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     [x-cloak] { display: none !important; }
-    
+
+    /* Folha exclusiva de impressão oculta na tela normal */
+    #folha-impressao { display: none; }
+
     @media print {
-      body * { visibility: hidden !important; }
-      #area-impressao, #area-impressao *, 
-      #area-relatorio-executivo, #area-relatorio-executivo *,
-      #area-dossie-unidade, #area-dossie-unidade * { 
-        visibility: visible !important; 
+      body {
+        background-color: white !important;
+        color: black !important;
       }
-      #area-impressao, #area-relatorio-executivo, #area-dossie-unidade {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-        margin: 0;
-        padding: 24px;
-        background: white;
+      /* Oculta tudo que é interface de tela */
+      header, main, .no-print, [role="dialog"], .fixed {
+        display: none !important;
       }
-      .no-print { display: none !important; }
+      /* Revela unicamente a folha timbrada e o relatório executivo */
+      #folha-impressao, #area-relatorio-executivo, #area-dossie-unidade {
+        display: block !important;
+        position: static !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
     }
   </style>
 </head>
@@ -580,7 +583,7 @@
     <div x-show="modalVisualizar" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak @keydown.escape.window="modalVisualizar = false">
       <div class="bg-white rounded-xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]" @click.away="modalVisualizar = false">
         
-        <div id="area-impressao" class="overflow-y-auto space-y-4 text-sm pr-1 flex-1">
+        <div class="overflow-y-auto space-y-4 text-sm pr-1 flex-1">
           <div class="flex justify-between items-center border-b pb-3 mb-2">
             <div class="flex items-center gap-3">
               <span class="p-2.5 bg-sky-900 text-white rounded-lg shadow-sm"><i class="fa-solid fa-file-shield text-xl"></i></span>
@@ -619,7 +622,7 @@
             </div>
             <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
               <span class="text-xs text-slate-500 block mb-0.5 font-medium">Grau de Risco</span>
-              <span class="font-bold"
+              <span class="font-bold" 
                 :class="{
                   'text-rose-600': demandaVisualizada.grau_risco === 'Crítico',
                   'text-amber-600': demandaVisualizada.grau_risco === 'Alto',
@@ -789,7 +792,7 @@
               <span class="text-xs font-bold text-slate-700 uppercase">Unidades Cadastradas (<span x-text="unidades.length"></span>)</span>
             </div>
             
-            <div class="divide-y divide-slate-200 border rounded-lg overflow-hidden bg-white max-h-60 overflow-y-auto">
+            <div class="divide-y border rounded-lg overflow-hidden bg-white max-h-60 overflow-y-auto">
               <template x-for="u in unidades" :key="u.id">
                 <div class="p-3 flex items-center justify-between hover:bg-slate-50 transition text-sm">
                   <div>
@@ -878,19 +881,90 @@
 
   </main>
 
+  <!-- ==================== ÁREA EXCLUSIVA DE IMPRESSÃO (FICHA TIMBRADA NATIVA) ==================== -->
+  <div id="folha-impressao" x-show="demandaVisualizada">
+    <div style="border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px; text-align: center;">
+      <h1 style="font-size: 15px; font-weight: bold; text-transform: uppercase; margin: 0; color: #0f172a;">Prefeitura Municipal &bull; Secretaria de Saúde</h1>
+      <h2 style="font-size: 13px; font-weight: bold; text-transform: uppercase; margin: 4px 0 0 0; color: #0369a1;">Subsecretaria de Fiscalização e Avaliação da Saúde</h2>
+      <p style="font-size: 11px; font-family: monospace; color: #64748b; margin: 4px 0 0 0;">FICHA TÉCNICA DE FISCALIZAÇÃO & AUDITORIA OPERACIONAL</p>
+    </div>
+
+    <div style="font-size: 12px; color: #1e293b; line-height: 1.4;">
+      <div style="display: flex; gap: 12px; margin-bottom: 10px;">
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Nº Protocolo / Ofício</span>
+          <strong style="font-size: 13px; color: #0f172a;" x-text="demandaVisualizada?.protocolo"></strong>
+        </div>
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Origem da Demanda</span>
+          <span style="font-weight: 600;" x-text="demandaVisualizada?.origem || 'Não informada'"></span>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 12px; margin-bottom: 10px;">
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Unidade Alvo</span>
+          <strong style="color: #0f172a;" x-text="demandaVisualizada?.unidade_nome || 'Unidade Geral'"></strong>
+        </div>
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Esfera de Gestão</span>
+          <span style="font-weight: 600;" x-text="obterEsferaGestao(demandaVisualizada)"></span>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 12px; margin-bottom: 10px;">
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Eixo Temático</span>
+          <span style="font-weight: 600;" x-text="demandaVisualizada?.tipo_fiscalizacao"></span>
+        </div>
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Grau de Risco</span>
+          <strong x-text="demandaVisualizada?.grau_risco"></strong>
+        </div>
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Status Atual</span>
+          <span style="font-weight: 600;" x-text="demandaVisualizada?.status"></span>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 12px; margin-bottom: 10px;">
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Prazo Fatal / Limite</span>
+          <strong style="font-family: monospace;" x-text="formatarData(demandaVisualizada?.prazo_fatal)"></strong>
+        </div>
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Responsável / Auditor</span>
+          <span style="font-weight: 600;" x-text="demandaVisualizada?.responsavel_atribuido || 'Não atribuído'"></span>
+        </div>
+      </div>
+
+      <div style="border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; margin-bottom: 24px;">
+        <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block; margin-bottom: 6px;">Descrição do Objeto & Despachos de Fiscalização</span>
+        <div style="white-space: pre-wrap; font-family: sans-serif; font-size: 11px; line-height: 1.5; color: #1e293b;" x-text="demandaVisualizada?.descricao || 'Sem histórico registrado.'"></div>
+      </div>
+
+      <div style="padding-top: 36px; text-align: center;">
+        <div style="border-top: 1px solid #475569; width: 50%; margin: 0 auto; padding-top: 6px; font-weight: bold; color: #0f172a;">
+          Subsecretaria de Fiscalização e Avaliação da Saúde
+        </div>
+        <span style="font-size: 10px; color: #64748b;">Gestão, Controle e Governança</span>
+      </div>
+    </div>
+  </div>
+
   <script>
     const API_URL = 'https://sisfisa-api.onrender.com';
 
     function fisaApp() {
       return {
-        abaAtiva: 'fiscalizacoes', // 'fiscalizacoes' | 'fluxo' | 'indicadores' | 'calendario'
+        abaAtiva: 'fiscalizacoes',
         abrirModal: false,
         abrirModalNovaReuniao: false,
         abrirModalUnidade: false,
         modalVisualizar: false,
         modalRelatorioMensal: false,
         
-        editandoId: null, // Controla se estamos editando ou criando
+        editandoId: null,
         demandaVisualizada: null,
         unidadeDossie: null,
 
@@ -899,8 +973,10 @@
         salvandoUnidade: false,
         salvandoDespacho: false,
         conectandoRender: false,
+        
         filtroRapido: 'todos',
         busca: '',
+        
         demandas: [],
         unidades: [],
         toasts: [],
@@ -1103,6 +1179,36 @@
           } finally {
             this.salvando = false;
           }
+        },
+
+        get demandasApenasFiscalizacao() {
+          return this.demandas.filter(d => d.tipo_fiscalizacao !== 'Reunião');
+        },
+
+        get demandasFiltradas() {
+          let lista = this.demandasApenasFiscalizacao;
+
+          if (this.filtroRapido === 'vencidos') {
+            lista = lista.filter(d => this.estaVencido(d.prazo_fatal, d.status));
+          } else if (this.filtroRapido === 'andamento') {
+            lista = lista.filter(d => d.status === 'Em andamento' || d.status === 'Triagem');
+          } else if (this.filtroRapido === 'concluidas') {
+            lista = lista.filter(d => d.status === 'Concluída');
+          } else if (this.filtroRapido === 'os') {
+            lista = lista.filter(d => this.obterEsferaGestao(d) === 'Organização Social (OS)');
+          } else if (this.filtroRapido === 'municipio') {
+            lista = lista.filter(d => this.obterEsferaGestao(d) === 'Administração Municipal (Direta)');
+          }
+
+          if (!this.busca) return lista;
+          const termo = this.busca.toLowerCase();
+          return lista.filter(d => 
+            (d.protocolo && d.protocolo.toLowerCase().includes(termo)) ||
+            (d.unidade_nome && d.unidade_nome.toLowerCase().includes(termo)) ||
+            (d.origem && d.origem.toLowerCase().includes(termo)) ||
+            (d.responsavel_atribuido && d.responsavel_atribuido.toLowerCase().includes(termo)) ||
+            (this.obterEsferaGestao(d).toLowerCase().includes(termo))
+          );
         },
 
         // --- ALERTAS PRIORITÁRIOS ---
@@ -1317,36 +1423,6 @@
           }
         },
 
-        get demandasApenasFiscalizacao() {
-          return this.demandas.filter(d => d.tipo_fiscalizacao !== 'Reunião');
-        },
-
-        get demandasFiltradas() {
-          let lista = this.demandasApenasFiscalizacao;
-
-          if (this.filtroRapido === 'vencidos') {
-            lista = lista.filter(d => this.estaVencido(d.prazo_fatal, d.status));
-          } else if (this.filtroRapido === 'andamento') {
-            lista = lista.filter(d => d.status === 'Em andamento' || d.status === 'Triagem');
-          } else if (this.filtroRapido === 'concluidas') {
-            lista = lista.filter(d => d.status === 'Concluída');
-          } else if (this.filtroRapido === 'os') {
-            lista = lista.filter(d => this.obterEsferaGestao(d) === 'Organização Social (OS)');
-          } else if (this.filtroRapido === 'municipio') {
-            lista = lista.filter(d => this.obterEsferaGestao(d) === 'Administração Municipal (Direta)');
-          }
-
-          if (!this.busca) return lista;
-          const termo = this.busca.toLowerCase();
-          return lista.filter(d => 
-            (d.protocolo && d.protocolo.toLowerCase().includes(termo)) ||
-            (d.unidade_nome && d.unidade_nome.toLowerCase().includes(termo)) ||
-            (d.origem && d.origem.toLowerCase().includes(termo)) ||
-            (d.responsavel_atribuido && d.responsavel_atribuido.toLowerCase().includes(termo)) ||
-            (this.obterEsferaGestao(d).toLowerCase().includes(termo))
-          );
-        },
-
         abrirModalNovaUnidade() {
           this.formUnidade = { nome_fantasia: '', tipo_unidade: 'Atenção Básica (ESF/UBS)' };
           this.abrirModalUnidade = true;
@@ -1434,7 +1510,13 @@
           }
         },
 
-        imprimirFicha() { window.print(); },
+        // Impressão nativa segura: dá 100ms para renderizar os dados e dispara o spool do navegador
+        imprimirFicha() {
+          if (!this.demandaVisualizada) return;
+          setTimeout(() => {
+            window.print();
+          }, 100);
+        },
 
         exportarParaCSV() {
           if (this.demandasFiltradas.length === 0) {
