@@ -38,7 +38,7 @@ app.get('/api/demandas', async (req, res) => {
   }
 });
 
-// Listar todas as unidades de saúde (apenas nome e tipo)
+// Listar todas as unidades de saúde
 app.get('/api/unidades', async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -58,7 +58,7 @@ app.get('/api/unidades', async (req, res) => {
   }
 });
 
-// Cadastrar nova unidade de saúde (com defaults para todos os campos restritos do banco)
+// Cadastrar nova unidade de saúde
 app.post('/api/unidades', async (req, res) => {
   const { nome_fantasia, tipo_unidade } = req.body;
   try {
@@ -71,7 +71,7 @@ app.post('/api/unidades', async (req, res) => {
       tipo_unidade: tipo_unidade || 'Atenção Básica (ESF/UBS)',
       cnes: 'N/A',
       tipo_gestao: 'Administração Direta',
-      endereco: 'Não informado' // Satisfaz a restrição not-null da coluna endereco
+      endereco: 'Não informado'
     };
 
     const { data, error } = await supabase
@@ -91,7 +91,42 @@ app.post('/api/unidades', async (req, res) => {
   }
 });
 
-// Cadastrar nova demanda (com tratamento seguro de campos opcionais)
+// Excluir unidade de saúde por ID
+app.delete('/api/unidades/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    // 1. Verifica se existem demandas vinculadas a esta unidade
+    const { count: demandasVinculadas } = await supabase
+      .from('demandas')
+      .select('*', { count: 'exact', head: true })
+      .eq('unidade_id', id);
+
+    if (demandasVinculadas && demandasVinculadas > 0) {
+      return res.status(400).json({
+        error: `Não é possível excluir esta unidade pois existem ${demandasVinculadas} demanda(s) vinculada(s) a ela.`
+      });
+    }
+
+    // 2. Realiza a exclusão
+    const { data, error } = await supabase
+      .from('unidades_saude')
+      .delete()
+      .eq('id', id)
+      .select();
+
+    if (error) {
+      console.error('Erro ao excluir unidade no Supabase:', error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ message: 'Unidade excluída com sucesso', deletado: data });
+  } catch (err) {
+    console.error('Erro interno ao excluir unidade:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Cadastrar nova demanda
 app.post('/api/demandas', async (req, res) => {
   const { protocolo, origem, unidade_id, tipo_fiscalizacao, grau_risco, prazo_fatal, descricao, responsavel_atribuido, numero_sei } = req.body;
   try {
