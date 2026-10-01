@@ -16,7 +16,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // Rota de Health Check
 app.get('/api/ping', (req, res) => res.json({ status: 'online', timestamp: new Date() }));
 
-// Listar demandas com dados da unidade
+// Listar demandas e visitas com dados da unidade
 app.get('/api/demandas', async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -105,7 +105,7 @@ app.delete('/api/unidades/:id', async (req, res) => {
 
     if (vinculadas && vinculadas > 0) {
       return res.status(400).json({
-        error: `Não é possível excluir: existem ${vinculadas} demanda(s) vinculada(s) a esta unidade.`
+        error: `Não é possível excluir: existem ${vinculadas} registro(s) vinculado(s) a esta unidade.`
       });
     }
 
@@ -123,7 +123,7 @@ app.delete('/api/unidades/:id', async (req, res) => {
   }
 });
 
-// Cadastrar demanda
+// Cadastrar demanda ou visita in loco
 app.post('/api/demandas', async (req, res) => {
   const { 
     protocolo, 
@@ -135,7 +135,8 @@ app.post('/api/demandas', async (req, res) => {
     descricao, 
     responsavel_atribuido, 
     numero_sei,
-    esfera_gestao 
+    esfera_gestao,
+    status
   } = req.body;
 
   try {
@@ -146,10 +147,12 @@ app.post('/api/demandas', async (req, res) => {
       grau_risco: grau_risco || 'Médio',
       prazo_fatal: prazo_fatal || null,
       descricao: descricao || '',
-      responsavel_atribuido: responsavel_atribuido || 'Comissão de Auditoria'
+      responsavel_atribuido: responsavel_atribuido || 'Comissão de Auditoria',
+      status: status || 'Triagem'
     };
 
     if (esfera_gestao) payload.esfera_gestao = esfera_gestao;
+
     if (unidade_id && typeof unidade_id === 'string' && unidade_id.trim() !== '') {
       payload.unidade_id = unidade_id.trim();
     } else {
@@ -192,9 +195,8 @@ app.post('/api/demandas', async (req, res) => {
   }
 });
 
-// Atualizar Demanda Completa (Edição de Dados e Responsável)
+// Atualizar Demanda Completa (PUT)
 app.put('/api/demandas/:id', async (req, res) => {
-  const { id } = req.params;
   const { 
     protocolo, 
     origem, 
@@ -204,7 +206,8 @@ app.put('/api/demandas/:id', async (req, res) => {
     prazo_fatal, 
     descricao, 
     responsavel_atribuido, 
-    esfera_gestao 
+    esfera_gestao,
+    status
   } = req.body;
 
   try {
@@ -219,6 +222,7 @@ app.put('/api/demandas/:id', async (req, res) => {
       unidade_id: (unidade_id && unidade_id.trim() !== '') ? unidade_id.trim() : null
     };
 
+    if (status) payload.status = status;
     if (esfera_gestao) payload.esfera_gestao = esfera_gestao;
 
     let { data, error } = await supabase
@@ -325,7 +329,7 @@ app.post('/api/demandas/:id/despachos', async (req, res) => {
   }
 });
 
-// Excluir demanda
+// Excluir demanda / visita
 app.delete('/api/demandas/:id', async (req, res) => {
   const { id } = req.params;
   try {
