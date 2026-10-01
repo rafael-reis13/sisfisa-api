@@ -531,16 +531,12 @@
             </div>
           </div>
 
-          <!-- Assinatura Institucional -->
-          <div class="pt-8 grid grid-cols-2 gap-8 text-center text-xs">
-            <div>
-              <div class="border-t border-slate-400 w-3/4 mx-auto pt-1 font-semibold text-slate-800">Comissão de Fiscalização e Auditoria</div>
-              <span class="text-[10px] text-slate-500">Equipe Técnica</span>
+          <!-- Assinatura Institucional Única -->
+          <div class="pt-10 text-center text-xs">
+            <div class="border-t border-slate-500 w-1/2 mx-auto pt-1 font-bold text-slate-900">
+              Subsecretaria de Fiscalização e Avaliação da Saúde
             </div>
-            <div>
-              <div class="border-t border-slate-400 w-3/4 mx-auto pt-1 font-semibold text-slate-800">Subsecretaria de Fiscalização da Saúde</div>
-              <span class="text-[10px] text-slate-500">Gestão e Governança</span>
-            </div>
+            <span class="text-[11px] text-slate-500">Gestão, Controle e Governança</span>
           </div>
         </div>
 
@@ -912,7 +908,7 @@
 
     function fisaApp() {
       return {
-        abaAtiva: 'fiscalizacoes', // 'fiscalizacoes' | 'indicadores' | 'calendario'
+        abaAtiva: 'fiscalizacoes',
         abrirModal: false,
         abrirModalNovaReuniao: false,
         abrirModalUnidade: false,
@@ -930,11 +926,9 @@
         unidades: [],
         toasts: [],
         
-        // Estado do Calendário
         dataCalendarioAtual: new Date(),
         diaSelecionadoIso: null,
 
-        // Instâncias do Chart.js
         chartGestaoInstancia: null,
         chartEixosInstancia: null,
         chartRiscoInstancia: null,
@@ -1028,7 +1022,6 @@
           }
         },
 
-        // --- MATRIZ DE RISCO / ALERTA PRIORITÁRIO ---
         get alertasPrioritarios() {
           return this.demandasApenasFiscalizacao.filter(d => {
             if (d.status === 'Concluída') return false;
@@ -1049,11 +1042,9 @@
           return Math.round((prazo - hoje) / (1000 * 60 * 60 * 24));
         },
 
-        // --- PAINEL DE INDICADORES (CHART.JS) ---
         atualizarGraficos() {
           const dadosFiscalizacao = this.demandasApenasFiscalizacao;
 
-          // 1. Gráfico Gestão
           const totalDireta = dadosFiscalizacao.filter(d => this.obterEsferaGestao(d) === 'Administração Municipal (Direta)').length;
           const totalOS = dadosFiscalizacao.filter(d => this.obterEsferaGestao(d) === 'Organização Social (OS)').length;
 
@@ -1077,7 +1068,6 @@
             });
           }
 
-          // 2. Gráfico Eixos
           const contagemEixos = {};
           dadosFiscalizacao.forEach(d => {
             const eixo = d.tipo_fiscalizacao || 'Outros';
@@ -1106,7 +1096,6 @@
             });
           }
 
-          // 3. Gráfico Risco
           const criticos = dadosFiscalizacao.filter(d => d.grau_risco === 'Crítico').length;
           const altos = dadosFiscalizacao.filter(d => d.grau_risco === 'Alto').length;
           const medios = dadosFiscalizacao.filter(d => d.grau_risco === 'Médio').length;
@@ -1133,7 +1122,6 @@
           }
         },
 
-        // --- RELATÓRIO MENSAL EXECUTIVO ---
         abrirRelatorioMensal() {
           this.modalRelatorioMensal = true;
         },
@@ -1146,7 +1134,6 @@
           return new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase();
         },
 
-        // --- CALENDÁRIO ---
         get nomeMesAtual() {
           return this.dataCalendarioAtual.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
         },
@@ -1261,7 +1248,6 @@
           }
         },
 
-        // --- FILTROS E OPERAÇÃO ---
         get demandasApenasFiscalizacao() {
           return this.demandas.filter(d => d.tipo_fiscalizacao !== 'Reunião');
         },
