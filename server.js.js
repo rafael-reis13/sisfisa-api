@@ -123,7 +123,7 @@ app.delete('/api/unidades/:id', async (req, res) => {
   }
 });
 
-// Cadastrar demanda
+// Cadastrar demanda ou reunião
 app.post('/api/demandas', async (req, res) => {
   const { 
     protocolo, 
@@ -193,7 +193,7 @@ app.post('/api/demandas', async (req, res) => {
   }
 });
 
-// Atualizar status da demanda (grava data de conclusão automaticamente)
+// Atualizar status
 app.patch('/api/demandas/:id/status', async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
@@ -209,7 +209,6 @@ app.patch('/api/demandas/:id/status', async (req, res) => {
       .eq('id', id)
       .select();
 
-    // Fallback caso a coluna data_conclusao não exista na tabela
     if (error && error.message.includes('data_conclusao')) {
       delete updatePayload.data_conclusao;
       const fallback = await supabase
@@ -229,7 +228,7 @@ app.patch('/api/demandas/:id/status', async (req, res) => {
   }
 });
 
-// Adicionar despacho / histórico de andamento na demanda
+// Adicionar despacho
 app.post('/api/demandas/:id/despachos', async (req, res) => {
   const { id } = req.params;
   const { texto, autor } = req.body;
@@ -238,7 +237,6 @@ app.post('/api/demandas/:id/despachos', async (req, res) => {
       return res.status(400).json({ error: 'O texto do despacho é obrigatório.' });
     }
 
-    // Busca o texto atual da descrição
     const { data: demanda, error: errBusca } = await supabase
       .from('demandas')
       .select('descricao')
@@ -266,7 +264,7 @@ app.post('/api/demandas/:id/despachos', async (req, res) => {
   }
 });
 
-// Excluir demanda
+// Excluir demanda / reunião
 app.delete('/api/demandas/:id', async (req, res) => {
   const { id } = req.params;
   try {
@@ -277,7 +275,7 @@ app.delete('/api/demandas/:id', async (req, res) => {
       .select();
 
     if (error) throw error;
-    res.json({ message: 'Demanda excluída com sucesso', deletado: data });
+    res.json({ message: 'Registro excluído com sucesso', deletado: data });
   } catch (err) {
     console.error('Erro ao excluir:', err);
     res.status(500).json({ error: err.message });
