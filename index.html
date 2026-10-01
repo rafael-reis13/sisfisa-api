@@ -11,7 +11,6 @@
   <style>
     [x-cloak] { display: none !important; }
 
-    /* Folha exclusiva de impressão oculta na tela normal */
     #folha-impressao { display: none; }
 
     @media print {
@@ -19,11 +18,9 @@
         background-color: white !important;
         color: black !important;
       }
-      /* Oculta tudo que é interface de tela */
       header, main, .no-print, [role="dialog"], .fixed {
         display: none !important;
       }
-      /* Revela unicamente a folha timbrada e o relatório executivo */
       #folha-impressao, #area-relatorio-executivo, #area-dossie-unidade {
         display: block !important;
         position: static !important;
@@ -56,7 +53,7 @@
     </template>
   </div>
 
-  <!-- Cabeçalho com Navegação de Abas -->
+  <!-- Cabeçalho -->
   <header class="bg-sky-950 text-white shadow-md border-b border-sky-800 no-print">
     <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-3">
       <div class="flex items-center space-x-3">
@@ -69,7 +66,7 @@
         </div>
       </div>
 
-      <!-- Seletor de Módulos (Fiscalizações x Fluxo & Equipe x Gráficos x Calendário) -->
+      <!-- Seletor de Módulos -->
       <div class="flex items-center bg-sky-900 p-1 rounded-xl border border-sky-700">
         <button 
           @click="mudarAba('fiscalizacoes')" 
@@ -98,6 +95,10 @@
       </div>
 
       <div class="flex items-center gap-2">
+        <!-- Botão Novo: Registrar Visita in loco -->
+        <button @click="abrirModalNovaVisita()" class="bg-amber-600 hover:bg-amber-500 text-white px-3 py-2 rounded-lg font-semibold text-xs sm:text-sm flex items-center transition shadow-sm">
+          <i class="fa-solid fa-location-dot mr-1.5"></i> Registrar Visita
+        </button>
         <button @click="abrirRelatorioMensal()" class="bg-indigo-700 hover:bg-indigo-600 text-white px-3 py-2 rounded-lg font-medium text-xs sm:text-sm flex items-center transition shadow-sm">
           <i class="fa-solid fa-file-contract mr-1.5"></i> Relatório
         </button>
@@ -173,7 +174,7 @@
           <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
               <h2 class="font-bold text-lg text-slate-800">Mapa Operacional de Fiscalizações</h2>
-              <p class="text-xs text-slate-500">Monitoramento de prazos fatais, órgãos solicitantes e conformidade hospitalar/ambulatorial</p>
+              <p class="text-xs text-slate-500">Monitoramento de prazos fatais, inspeções presenciais e conformidade hospitalar/ambulatorial</p>
             </div>
             <button @click="exportarParaCSV()" class="bg-emerald-700 hover:bg-emerald-600 text-white px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 shadow-sm transition">
               <i class="fa-solid fa-file-excel text-sm"></i> Exportar Relatório (CSV)
@@ -184,6 +185,9 @@
           <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
             <div class="flex flex-wrap gap-1.5 text-xs font-medium">
               <button @click="filtroRapido = 'todos'" :class="filtroRapido === 'todos' ? 'bg-sky-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1.5 rounded-lg transition">Todos</button>
+              <button @click="filtroRapido = 'visitas'" :class="filtroRapido === 'visitas' ? 'bg-amber-600 text-white' : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'" class="px-3 py-1.5 rounded-lg transition flex items-center gap-1.5">
+                <i class="fa-solid fa-location-dot"></i> Visitas in loco (<span x-text="todasVisitasInLoco.length"></span>)
+              </button>
               <button @click="filtroRapido = 'vencidos'" :class="filtroRapido === 'vencidos' ? 'bg-rose-700 text-white' : 'bg-slate-100 text-rose-700 hover:bg-rose-50'" class="px-3 py-1.5 rounded-lg transition flex items-center gap-1.5">
                 <span class="w-2 h-2 rounded-full bg-rose-500 inline-block"></span> Vencidos / Alerta
               </button>
@@ -207,9 +211,9 @@
                 <th class="p-4">Protocolo / Origem</th>
                 <th class="p-4">Unidade Alvo</th>
                 <th class="p-4">Gestão</th>
-                <th class="p-4">Eixo Fiscalizado</th>
+                <th class="p-4">Tipo / Eixo</th>
                 <th class="p-4">Responsável</th>
-                <th class="p-4">Prazo Fatal</th>
+                <th class="p-4">Data / Prazo</th>
                 <th class="p-4">Status</th>
                 <th class="p-4 text-center">Ações</th>
               </tr>
@@ -238,7 +242,9 @@
                     </span>
                   </td>
                   <td class="p-4">
-                    <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200" x-text="d.tipo_fiscalizacao"></span>
+                    <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium"
+                      :class="d.tipo_fiscalizacao === 'Visita in loco' ? 'bg-amber-100 text-amber-800 border border-amber-300 font-bold' : 'bg-slate-100 text-slate-700 border border-slate-200'"
+                      x-text="d.tipo_fiscalizacao"></span>
                   </td>
                   <td class="p-4">
                     <span class="font-medium text-xs text-slate-700" x-text="d.responsavel_atribuido || 'Não atribuído'"></span>
@@ -278,7 +284,6 @@
 
     <!-- ==================== ABA 2: FLUXO DE TRABALHO INTERNO & AUDITORES ==================== -->
     <div x-show="abaAtiva === 'fluxo'" x-cloak class="space-y-6">
-      
       <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <div>
           <h2 class="font-bold text-lg text-slate-800 flex items-center gap-2">
@@ -288,7 +293,6 @@
         </div>
       </div>
 
-      <!-- Cards de Carga de Trabalho por Auditor / Responsável -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <template x-for="(dados, auditor) in fluxoPorAuditor" :key="auditor">
           <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
@@ -306,7 +310,6 @@
                 <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200" x-text="dados.total + ' proc.'"></span>
               </div>
 
-              <!-- Indicadores do Auditor -->
               <div class="grid grid-cols-3 gap-2 text-center text-xs mb-3">
                 <div class="p-2 bg-slate-50 rounded border">
                   <span class="text-[10px] text-slate-500 block">Ativos</span>
@@ -322,7 +325,6 @@
                 </div>
               </div>
 
-              <!-- Lista de Processos em Aberto do Auditor -->
               <div class="space-y-1.5 max-h-36 overflow-y-auto pr-1">
                 <template x-for="p in dados.processos.filter(x => x.status !== 'Concluída').slice(0, 4)" :key="p.id">
                   <div class="p-1.5 bg-slate-50 border rounded text-[11px] flex justify-between items-center hover:bg-slate-100 cursor-pointer" @click="iniciarEdicao(p)">
@@ -340,7 +342,6 @@
           </div>
         </template>
       </div>
-
     </div>
 
     <!-- ==================== ABA 3: INDICADORES (CHART.JS) ==================== -->
@@ -472,7 +473,82 @@
       </div>
     </div>
 
-    <!-- MODAL DE CADASTRO OU EDIÇÃO DE DEMANDA -->
+    <!-- MODAL NOVO: REGISTRAR VISITA IN LOCO -->
+    <div x-show="abrirModalVisita" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
+      <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto" @click.away="abrirModalVisita = false">
+        
+        <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
+          <span class="p-1.5 bg-amber-100 text-amber-800 rounded-lg text-sm">
+            <i class="fa-solid fa-location-dot"></i>
+          </span>
+          Registrar Visita / Fiscalização in loco
+        </h3>
+
+        <form @submit.prevent="salvarVisitaInLoco" class="space-y-4">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Identificação / Protocolo da Visita *</label>
+              <input type="text" x-model="formVisita.protocolo" required class="w-full border rounded px-3 py-1.5 text-sm" placeholder="Ex: VISTORIA-2026/01">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Data da Inspeção in loco *</label>
+              <input type="date" x-model="formVisita.prazo_fatal" required class="w-full border rounded px-3 py-1.5 text-sm bg-white">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Unidade Inspecionada *</label>
+              <select x-model="formVisita.unidade_id" required class="w-full border rounded px-3 py-1.5 text-sm bg-white font-medium">
+                <option value="">Selecione a unidade de saúde...</option>
+                <template x-for="u in unidades" :key="u.id">
+                  <option :value="u.id" x-text="u.nome_fantasia"></option>
+                </template>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Esfera de Gestão *</label>
+              <select x-model="formVisita.esfera_gestao" class="w-full border rounded px-3 py-1.5 text-sm bg-white font-medium">
+                <option value="Administração Municipal (Direta)">Administração Municipal (Direta)</option>
+                <option value="Organização Social (OS)">Organização Social (OS)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Auditor / Equipe Responsável *</label>
+              <input type="text" x-model="formVisita.responsavel_atribuido" required placeholder="Ex: Auditor Rafael Reis" class="w-full border rounded px-3 py-1.5 text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Gravidade / Risco Apurado</label>
+              <select x-model="formVisita.grau_risco" class="w-full border rounded px-3 py-1.5 text-sm">
+                <option>Médio</option>
+                <option>Alto</option>
+                <option>Crítico</option>
+                <option>Baixo</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Relatório da Visita & Achados in loco *</label>
+            <textarea x-model="formVisita.descricao" required rows="4" class="w-full border rounded px-3 py-1.5 text-sm" placeholder="Descreva os achados da fiscalização em campo: cumprimento de escala, presença de médicos/enfermagem, abastecimento da farmácia, condições estruturais, etc."></textarea>
+          </div>
+
+          <div class="flex justify-end gap-2 pt-4 border-t">
+            <button type="button" @click="abrirModalVisita = false" class="px-4 py-2 border rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
+            <button type="submit" :disabled="salvando" class="px-4 py-2 bg-amber-700 text-white rounded-lg text-xs font-bold hover:bg-amber-600 flex items-center shadow">
+              <span x-show="!salvando"><i class="fa-solid fa-check mr-1.5"></i> Salvar Visita in loco</span>
+              <span x-show="salvando"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL DE CADASTRO OU EDIÇÃO DE DEMANDA GERAL -->
     <div x-show="abrirModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
       <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto" @click.away="abrirModal = false">
         
@@ -542,6 +618,7 @@
                 <option>Sanitária</option>
                 <option>Farmacêutica</option>
                 <option>Jurídica</option>
+                <option>Visita in loco</option>
                 <option>Outros</option>
               </select>
             </div>
@@ -797,14 +874,18 @@
                 <div class="p-3 flex items-center justify-between hover:bg-slate-50 transition text-sm">
                   <div>
                     <p class="font-bold text-slate-800 text-xs sm:text-sm" x-text="u.nome_fantasia"></p>
-                    <span class="text-xs text-slate-400" x-text="u.tipo_unidade"></span>
+                    <div class="flex items-center gap-2 mt-0.5">
+                      <span class="text-xs text-slate-400" x-text="u.tipo_unidade"></span>
+                      <!-- BADGE DE QUANTIDADE DE VISITAS IN LOCO REALIZADAS NA UNIDADE -->
+                      <span class="text-[10px] px-2 py-0.2 rounded-full font-bold bg-amber-100 text-amber-800 border border-amber-200" x-text="contarVisitasPorUnidade(u.id) + ' visita(s)'"></span>
+                    </div>
                   </div>
                   <div class="flex items-center gap-1.5">
                     <button 
                       type="button"
                       @click="abrirDossieUnidade(u)"
                       class="px-2.5 py-1 text-sky-700 hover:text-white hover:bg-sky-700 border border-sky-300 rounded-md transition text-xs flex items-center gap-1 font-semibold"
-                      title="Ver Ficha Histórica / Dossiê">
+                      title="Ver Ficha Histórica / Dossiê Completo">
                       <i class="fa-solid fa-file-medical"></i> Raio-X
                     </button>
                     <button 
@@ -827,6 +908,119 @@
           </button>
         </div>
 
+      </div>
+    </div>
+
+    <!-- MODAL: FICHA HISTÓRICA / DOSSIÊ DA UNIDADE (COM SEÇÃO DE VISITAS IN LOCO) -->
+    <div x-show="modalDossieUnidade" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
+      <div class="bg-white rounded-xl max-w-4xl w-full p-6 shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[94vh]" @click.away="modalDossieUnidade = false">
+        
+        <div id="area-dossie-unidade" class="overflow-y-auto space-y-6 text-sm pr-2 flex-1" x-if="unidadeDossie">
+          <!-- Cabeçalho Oficial da Unidade -->
+          <div class="border-b-2 border-slate-800 pb-3 flex justify-between items-start">
+            <div>
+              <span class="text-[11px] text-sky-800 font-bold uppercase tracking-wider block">Dossiê Técnico de Fiscalização e Auditoria</span>
+              <h2 class="text-xl font-bold text-slate-900" x-text="unidadeDossie.nome_fantasia"></h2>
+              <div class="flex items-center gap-3 text-xs text-slate-500 mt-1">
+                <span><i class="fa-solid fa-tag mr-1"></i> Tipo: <strong class="text-slate-700" x-text="unidadeDossie.tipo_unidade"></strong></span>
+                <span x-show="unidadeDossie.cnes && !unidadeDossie.cnes.startsWith('AUTO-')"><i class="fa-solid fa-id-card mr-1"></i> CNES: <strong class="text-slate-700" x-text="unidadeDossie.cnes"></strong></span>
+              </div>
+            </div>
+            <button @click="modalDossieUnidade = false" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition no-print">
+              <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+          </div>
+
+          <!-- Métricas e Indicadores da Unidade com Destaque para Visitas in loco -->
+          <div class="grid grid-cols-4 gap-3 text-center">
+            <div class="p-3 bg-slate-50 border rounded-lg">
+              <span class="text-[10px] text-slate-500 uppercase font-semibold block">Total Notificações</span>
+              <span class="text-xl font-bold text-slate-800" x-text="demandasDaUnidadeDossie.length"></span>
+            </div>
+            <div class="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <span class="text-[10px] text-amber-800 uppercase font-bold block"><i class="fa-solid fa-location-dot mr-1"></i> Visitas in loco</span>
+              <span class="text-xl font-bold text-amber-900" x-text="visitasInLocoDaUnidadeDossie.length"></span>
+            </div>
+            <div class="p-3 bg-slate-50 border rounded-lg">
+              <span class="text-[10px] text-slate-500 uppercase font-semibold block">Críticas / Alto Risco</span>
+              <span class="text-xl font-bold text-rose-700" x-text="demandasDaUnidadeDossie.filter(d => d.grau_risco === 'Crítico' || d.grau_risco === 'Alto').length"></span>
+            </div>
+            <div class="p-3 bg-slate-50 border rounded-lg">
+              <span class="text-[10px] text-slate-500 uppercase font-semibold block">Reuniões Realizadas</span>
+              <span class="text-xl font-bold text-emerald-700" x-text="reunioesDaUnidadeDossie.length"></span>
+            </div>
+          </div>
+
+          <!-- SEÇÃO DEDICADA: HISTÓRICO DE VISITAS IN LOCO REALIZADAS NESTA UNIDADE -->
+          <div class="bg-amber-50/60 border border-amber-200 p-4 rounded-xl">
+            <div class="flex justify-between items-center mb-2.5 pb-2 border-b border-amber-200/80">
+              <h4 class="text-xs font-bold text-amber-950 uppercase tracking-wide flex items-center gap-1.5">
+                <i class="fa-solid fa-person-walking-dashed-line-arrow-right text-amber-700 text-sm"></i>
+                Histórico de Fiscalizações em Campo (Visitas in loco) nesta Unidade (<span x-text="visitasInLocoDaUnidadeDossie.length"></span>)
+              </h4>
+              <button @click="modalDossieUnidade = false; abrirModalNovaVisita(unidadeDossie.id)" class="text-[11px] font-bold text-amber-900 hover:text-amber-700 bg-white border border-amber-300 px-2.5 py-1 rounded-md shadow-sm no-print">
+                + Nova Visita nesta Unidade
+              </button>
+            </div>
+
+            <div class="space-y-2 max-h-48 overflow-y-auto pr-1">
+              <template x-for="v in visitasInLocoDaUnidadeDossie" :key="v.id">
+                <div class="p-3 bg-white border border-amber-200 rounded-lg shadow-sm text-xs space-y-1">
+                  <div class="flex justify-between items-center">
+                    <span class="font-bold text-slate-900" x-text="v.protocolo"></span>
+                    <span class="font-mono text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded" x-text="formatarData(v.prazo_fatal)"></span>
+                  </div>
+                  <p class="text-slate-700 leading-relaxed font-sans" x-text="v.descricao"></p>
+                  <div class="text-[11px] text-slate-400 pt-1 flex justify-between border-t border-slate-100">
+                    <span>Fiscal/Auditor: <strong class="text-slate-600" x-text="v.responsavel_atribuido || 'Equipe FISA'"></strong></span>
+                    <span x-text="'Risco apurado: ' + v.grau_risco"></span>
+                  </div>
+                </div>
+              </template>
+              <template x-if="visitasInLocoDaUnidadeDossie.length === 0">
+                <div class="p-4 text-center text-slate-500 italic text-xs bg-white rounded-lg border border-dashed border-amber-200">
+                  Nenhuma fiscalização in loco registrada para esta unidade até o momento.
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Histórico Geral de Demandas e Notificações -->
+          <div>
+            <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 border-b pb-1">
+              Processos, Notificações e Expedientes Gerais (<span x-text="demandasDaUnidadeDossie.filter(d => d.tipo_fiscalizacao !== 'Visita in loco').length"></span>)
+            </h4>
+            <div class="divide-y border rounded-lg overflow-hidden text-xs max-h-48 overflow-y-auto">
+              <template x-for="d in demandasDaUnidadeDossie.filter(d => d.tipo_fiscalizacao !== 'Visita in loco')" :key="d.id">
+                <div class="p-3 bg-white hover:bg-slate-50 transition flex justify-between items-start gap-3">
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <span class="font-bold text-slate-800" x-text="d.protocolo"></span>
+                      <span class="px-1.5 py-0.2 rounded text-[10px] font-semibold"
+                        :class="d.grau_risco === 'Crítico' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'"
+                        x-text="d.grau_risco"></span>
+                      <span class="text-[10px] text-slate-400" x-text="'&bull; ' + d.origem"></span>
+                    </div>
+                    <p class="text-slate-600 mt-1 line-clamp-1" x-text="d.descricao"></p>
+                  </div>
+                  <div class="text-right whitespace-nowrap">
+                    <span class="text-[11px] font-semibold" :class="d.status === 'Concluída' ? 'text-emerald-700' : 'text-amber-700'" x-text="d.status"></span>
+                    <span class="text-[10px] text-slate-400 block" x-text="formatarData(d.prazo_fatal)"></span>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <div class="border-t pt-4 mt-3 flex justify-between items-center no-print">
+          <button type="button" @click="imprimirDossie()" class="px-4 py-2 bg-sky-900 hover:bg-sky-800 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
+            <i class="fa-solid fa-print"></i> Imprimir Dossiê da Unidade
+          </button>
+          <button type="button" @click="modalDossieUnidade = false" class="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold transition">
+            Fechar
+          </button>
+        </div>
       </div>
     </div>
 
@@ -859,7 +1053,6 @@
             </div>
           </div>
 
-          <!-- Assinatura Institucional Única -->
           <div class="pt-10 text-center text-xs">
             <div class="border-t border-slate-500 w-1/2 mx-auto pt-1 font-bold text-slate-900">
               Subsecretaria de Fiscalização e Avaliação da Saúde
@@ -960,9 +1153,11 @@
         abaAtiva: 'fiscalizacoes',
         abrirModal: false,
         abrirModalNovaReuniao: false,
+        abrirModalNovaVisita: false,
         abrirModalUnidade: false,
         modalVisualizar: false,
         modalRelatorioMensal: false,
+        modalDossieUnidade: false,
         
         editandoId: null,
         demandaVisualizada: null,
@@ -1001,6 +1196,18 @@
           prazo_fatal: '',
           descricao: '',
           responsavel_atribuido: 'Comissão de Auditoria'
+        },
+
+        formVisita: {
+          protocolo: '',
+          origem: 'Diligência in loco',
+          unidade_id: '',
+          esfera_gestao: 'Administração Municipal (Direta)',
+          tipo_fiscalizacao: 'Visita in loco',
+          grau_risco: 'Médio',
+          prazo_fatal: '',
+          descricao: '',
+          responsavel_atribuido: ''
         },
 
         formReuniao: {
@@ -1075,6 +1282,92 @@
           } catch (e) {
             console.error(e);
           }
+        },
+
+        // --- MÓDULO VISITAS IN LOCO ---
+        abrirModalNovaVisita(unidadeId = '') {
+          const hojeIso = new Date().toISOString().substring(0, 10);
+          this.formVisita = {
+            protocolo: 'VISTORIA-' + new Date().getFullYear() + '/' + String(Math.floor(Math.random() * 900) + 100),
+            origem: 'Fiscalização in loco',
+            unidade_id: unidadeId || '',
+            esfera_gestao: 'Administração Municipal (Direta)',
+            tipo_fiscalizacao: 'Visita in loco',
+            grau_risco: 'Médio',
+            prazo_fatal: hojeIso,
+            descricao: '',
+            responsavel_atribuido: 'Auditor Rafael Reis'
+          };
+          this.abrirModalVisita = true;
+        },
+
+        async salvarVisitaInLoco() {
+          this.salvando = true;
+          try {
+            const payload = {
+              ...this.formVisita,
+              unidade_id: this.formVisita.unidade_id || null,
+              status: 'Concluída' // Visitas realizadas entram por padrão como realizadas/concluídas
+            };
+
+            const res = await fetch(`${API_URL}/api/demandas`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) throw new Error('Falha ao registrar vistoria.');
+
+            this.abrirModalVisita = false;
+            await this.carregarDemandas();
+            this.mostrarToast(`Visita in loco "${payload.protocolo}" registrada com sucesso!`);
+          } catch (err) {
+            this.mostrarToast(err.message, 'erro');
+          } finally {
+            this.salvando = false;
+          }
+        },
+
+        contarVisitasPorUnidade(unidadeId) {
+          return this.demandas.filter(d => d.unidade_id === unidadeId && d.tipo_fiscalizacao === 'Visita in loco').length;
+        },
+
+        get todasVisitasInLoco() {
+          return this.demandas.filter(d => d.tipo_fiscalizacao === 'Visita in loco');
+        },
+
+        get visitasInLocoDaUnidadeDossie() {
+          if (!this.unidadeDossie) return [];
+          return this.demandas.filter(d => 
+            d.unidade_id === this.unidadeDossie.id && 
+            d.tipo_fiscalizacao === 'Visita in loco'
+          );
+        },
+
+        // --- DOSSIÊ DA UNIDADE ---
+        abrirDossieUnidade(u) {
+          this.unidadeDossie = u;
+          this.modalDossieUnidade = true;
+        },
+
+        imprimirDossie() {
+          window.print();
+        },
+
+        get demandasDaUnidadeDossie() {
+          if (!this.unidadeDossie) return [];
+          return this.demandas.filter(d => 
+            d.unidade_id === this.unidadeDossie.id && 
+            d.tipo_fiscalizacao !== 'Reunião'
+          );
+        },
+
+        get reunioesDaUnidadeDossie() {
+          if (!this.unidadeDossie) return [];
+          return this.demandas.filter(d => 
+            d.unidade_id === this.unidadeDossie.id && 
+            d.tipo_fiscalizacao === 'Reunião'
+          );
         },
 
         // --- FLUXO DE TRABALHO & AUDITORES ---
@@ -1188,7 +1481,9 @@
         get demandasFiltradas() {
           let lista = this.demandasApenasFiscalizacao;
 
-          if (this.filtroRapido === 'vencidos') {
+          if (this.filtroRapido === 'visitas') {
+            lista = lista.filter(d => d.tipo_fiscalizacao === 'Visita in loco');
+          } else if (this.filtroRapido === 'vencidos') {
             lista = lista.filter(d => this.estaVencido(d.prazo_fatal, d.status));
           } else if (this.filtroRapido === 'andamento') {
             lista = lista.filter(d => d.status === 'Em andamento' || d.status === 'Triagem');
@@ -1510,7 +1805,6 @@
           }
         },
 
-        // Impressão nativa segura: dá 100ms para renderizar os dados e dispara o spool do navegador
         imprimirFicha() {
           if (!this.demandaVisualizada) return;
           setTimeout(() => {
@@ -1617,7 +1911,7 @@
         renderizarBadgePrazo(dataIso, status) {
           if (!dataIso) return '';
           if (status === 'Concluída') {
-            return `<span class="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">Finalizada</span>`;
+            return `<span class="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">Concluída / Registrada</span>`;
           }
 
           const hoje = new Date();
