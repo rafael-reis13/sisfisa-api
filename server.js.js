@@ -58,7 +58,7 @@ app.get('/api/unidades', async (req, res) => {
   }
 });
 
-// Cadastrar nova unidade de saúde (com CNES único gerado automaticamente para contornar a regra UNIQUE)
+// Cadastrar nova unidade de saúde (com CNES único gerado automaticamente para contornar UNIQUE)
 app.post('/api/unidades', async (req, res) => {
   const { nome_fantasia, tipo_unidade } = req.body;
   try {
@@ -69,7 +69,7 @@ app.post('/api/unidades', async (req, res) => {
     const payload = {
       nome_fantasia: nome_fantasia.trim(),
       tipo_unidade: tipo_unidade || 'Atenção Básica (ESF/UBS)',
-      cnes: 'AUTO-' + Date.now().toString().slice(-8), // Gera um identificador único (ex: AUTO-12345678) evitando duplicidade
+      cnes: 'AUTO-' + Date.now().toString().slice(-8),
       tipo_gestao: 'Administração Direta',
       endereco: 'Não informado'
     };
@@ -95,7 +95,6 @@ app.post('/api/unidades', async (req, res) => {
 app.delete('/api/unidades/:id', async (req, res) => {
   const { id } = req.params;
   try {
-    // 1. Verifica se existem demandas vinculadas a esta unidade
     const { count: demandasVinculadas } = await supabase
       .from('demandas')
       .select('*', { count: 'exact', head: true })
@@ -107,7 +106,6 @@ app.delete('/api/unidades/:id', async (req, res) => {
       });
     }
 
-    // 2. Realiza a exclusão
     const { data, error } = await supabase
       .from('unidades_saude')
       .delete()
@@ -126,9 +124,21 @@ app.delete('/api/unidades/:id', async (req, res) => {
   }
 });
 
-// Cadastrar nova demanda
+// Cadastrar nova demanda (com campo esfera_gestao / tipo de executor)
 app.post('/api/demandas', async (req, res) => {
-  const { protocolo, origem, unidade_id, tipo_fiscalizacao, grau_risco, prazo_fatal, descricao, responsavel_atribuido, numero_sei } = req.body;
+  const { 
+    protocolo, 
+    origem, 
+    unidade_id, 
+    tipo_fiscalizacao, 
+    grau_risco, 
+    prazo_fatal, 
+    descricao, 
+    responsavel_atribuido, 
+    numero_sei,
+    esfera_gestao 
+  } = req.body;
+
   try {
     const payload = {
       protocolo: protocolo || 'SEM PROTOCOLO',
@@ -140,6 +150,11 @@ app.post('/api/demandas', async (req, res) => {
       responsavel_atribuido: responsavel_atribuido || 'Comissão de Auditoria'
     };
 
+    // Caso a coluna exista no banco, inclui esfera_gestao; se não existir, grava dentro da descrição ou campo auxiliar
+    if (esfera_gestao) {
+      payload.esfera_gestao = esfera_gestao;
+    }
+
     if (unidade_id && typeof unidade_id === 'string' && unidade_id.trim() !== '') {
       payload.unidade_id = unidade_id.trim();
     } else {
@@ -150,10 +165,22 @@ app.post('/api/demandas', async (req, res) => {
       payload.numero_sei = numero_sei.trim();
     }
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('demandas')
       .insert([payload])
       .select('*, unidades_saude(nome_fantasia)');
+
+    // Fallback: se a coluna 'esfera_gestao' ainda não tiver sido criada no Supabase, insere com tag no topo da descrição
+    if (error && error.message.includes('esfera_gestao')) {
+      delete payload.esfera_gestao;
+      payload.descricao = `[GESTÃO: ${esfera_gestao || 'Município'}]\n` + payload.descricao;
+      const tentativa = await supabase
+        .from('demandas')
+        .insert([payload])
+        .select('*, unidades_saude(nome_fantasia)');
+      data = tentativa.data;
+      error = tentativa.error;
+    }
 
     if (error) {
       console.error('Erro detalhado no Supabase POST /demandas:', error);
