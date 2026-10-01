@@ -6,20 +6,21 @@
   <title>SIS-FISA | Subsecretaria de Fiscalização e Avaliação da Saúde</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     [x-cloak] { display: none !important; }
     
     @media print {
-      body * { visibility: hidden; }
-      #area-impressao, #area-impressao * { visibility: visible; }
-      #area-impressao {
+      body * { visibility: hidden !important; }
+      #area-impressao, #area-impressao *, #area-relatorio-executivo, #area-relatorio-executivo * { visibility: visible !important; }
+      #area-impressao, #area-relatorio-executivo {
         position: absolute;
         left: 0;
         top: 0;
         width: 100%;
         margin: 0;
-        padding: 20px;
+        padding: 24px;
         background: white;
       }
       .no-print { display: none !important; }
@@ -29,7 +30,7 @@
 <body class="bg-slate-100 text-slate-800 font-sans antialiased" x-data="fisaApp()" x-init="iniciarApp()">
 
   <!-- Notificações Toast Flutuantes -->
-  <div class="fixed top-5 right-5 z-50 flex flex-col gap-2 max-w-sm pointer-events-none">
+  <div class="fixed top-5 right-5 z-50 flex flex-col gap-2 max-w-sm pointer-events-none no-print">
     <template x-for="t in toasts" :key="t.id">
       <div 
         class="pointer-events-auto p-4 rounded-xl shadow-lg border text-sm flex items-start gap-3 transition-all transform duration-300"
@@ -61,35 +62,43 @@
         </div>
       </div>
 
-      <!-- Seletor de Módulos (Fiscalização x Calendário) -->
+      <!-- Seletor de Módulos (Fiscalizações x Gráficos x Calendário) -->
       <div class="flex items-center bg-sky-900 p-1 rounded-xl border border-sky-700">
         <button 
-          @click="abaAtiva = 'fiscalizacoes'" 
+          @click="mudarAba('fiscalizacoes')" 
           :class="abaAtiva === 'fiscalizacoes' ? 'bg-sky-600 text-white shadow' : 'text-sky-200 hover:text-white'"
-          class="px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2">
+          class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2">
           <i class="fa-solid fa-clipboard-list"></i> Fiscalizações
         </button>
         <button 
-          @click="abaAtiva = 'calendario'" 
+          @click="mudarAba('indicadores')" 
+          :class="abaAtiva === 'indicadores' ? 'bg-sky-600 text-white shadow' : 'text-sky-200 hover:text-white'"
+          class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2">
+          <i class="fa-solid fa-chart-pie"></i> Indicadores
+        </button>
+        <button 
+          @click="mudarAba('calendario')" 
           :class="abaAtiva === 'calendario' ? 'bg-sky-600 text-white shadow' : 'text-sky-200 hover:text-white'"
-          class="px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2">
-          <i class="fa-solid fa-calendar-days"></i> Calendário & Reuniões
-          <span x-show="reunioesFuturas.length > 0" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2">
+          <i class="fa-solid fa-calendar-days"></i> Calendário
         </button>
       </div>
 
       <div class="flex items-center gap-2">
-        <button @click="abrirModalNovaUnidade()" class="bg-sky-900 hover:bg-sky-800 border border-sky-700 text-white px-3.5 py-2 rounded-lg font-medium text-xs sm:text-sm flex items-center transition shadow-sm">
-          <i class="fa-solid fa-hospital mr-2"></i> Unidades
+        <button @click="abrirRelatorioMensal()" class="bg-indigo-700 hover:bg-indigo-600 text-white px-3 py-2 rounded-lg font-medium text-xs sm:text-sm flex items-center transition shadow-sm">
+          <i class="fa-solid fa-file-contract mr-1.5"></i> Relatório Mensal
         </button>
-        <template x-if="abaAtiva === 'fiscalizacoes'">
-          <button @click="abrirNovoModal()" class="bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm flex items-center transition shadow">
-            <i class="fa-solid fa-plus mr-2"></i> Nova Demanda
+        <button @click="abrirModalNovaUnidade()" class="bg-sky-900 hover:bg-sky-800 border border-sky-700 text-white px-3 py-2 rounded-lg font-medium text-xs sm:text-sm flex items-center transition shadow-sm">
+          <i class="fa-solid fa-hospital mr-1.5"></i> Unidades
+        </button>
+        <template x-if="abaAtiva === 'fiscalizacoes' || abaAtiva === 'indicadores'">
+          <button @click="abrirNovoModal()" class="bg-sky-600 hover:bg-sky-500 text-white px-3.5 py-2 rounded-lg font-semibold text-xs sm:text-sm flex items-center transition shadow">
+            <i class="fa-solid fa-plus mr-1.5"></i> Nova Demanda
           </button>
         </template>
         <template x-if="abaAtiva === 'calendario'">
-          <button @click="abrirModalReuniao()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm flex items-center transition shadow">
-            <i class="fa-solid fa-calendar-plus mr-2"></i> Agendar Reunião
+          <button @click="abrirModalReuniao()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-lg font-semibold text-xs sm:text-sm flex items-center transition shadow">
+            <i class="fa-solid fa-calendar-plus mr-1.5"></i> Agendar Reunião
           </button>
         </template>
       </div>
@@ -103,7 +112,7 @@
       <div class="flex items-center gap-3">
         <i class="fa-solid fa-satellite-dish fa-bounce text-amber-600 text-lg"></i>
         <div>
-          <span class="font-bold">Inicializando Conexão com a API:</span> O servidor no Render está acordando do modo repouso...
+          <span class="font-bold">Conectando ao banco de dados:</span> O servidor está acordando do repouso...
         </div>
       </div>
       <i class="fa-solid fa-spinner fa-spin text-amber-700"></i>
@@ -112,6 +121,42 @@
     <!-- ==================== ABA 1: FISCALIZAÇÕES ==================== -->
     <div x-show="abaAtiva === 'fiscalizacoes'" x-cloak>
       
+      <!-- MATRIZ DE RISCO / ALERTA PRIORITÁRIO -->
+      <div x-show="alertasPrioritarios.length > 0" class="mb-8 p-4 bg-rose-50 border-l-4 border-rose-600 rounded-xl shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <span class="relative flex h-3 w-3">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-3 w-3 bg-rose-600"></span>
+            </span>
+            <h3 class="font-bold text-sm text-rose-900 uppercase tracking-wide">
+              Matriz de Gravidade e Alerta Imediato (<span x-text="alertasPrioritarios.length"></span>)
+            </h3>
+          </div>
+          <span class="text-[11px] text-rose-700 font-medium bg-rose-100 px-2 py-0.5 rounded">Risco Crítico / MP / Vencimento Iminente</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <template x-for="item in alertasPrioritarios" :key="item.id">
+            <div class="bg-white p-3.5 rounded-lg border border-rose-200 shadow-sm flex flex-col justify-between">
+              <div>
+                <div class="flex justify-between items-start gap-2 mb-1">
+                  <span class="font-bold text-xs text-slate-800" x-text="item.protocolo"></span>
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700" x-text="item.grau_risco"></span>
+                </div>
+                <p class="text-xs text-slate-600 truncate font-medium" x-text="item.unidade_nome || 'Unidade Geral'"></p>
+                <p class="text-[11px] text-slate-500 line-clamp-1 mt-0.5" x-text="item.descricao"></p>
+              </div>
+
+              <div class="flex justify-between items-center mt-3 pt-2 border-t border-slate-100 text-xs">
+                <span class="font-mono text-[11px] text-rose-700 font-semibold" x-text="'Prazo: ' + formatarData(item.prazo_fatal)"></span>
+                <button @click="visualizarDemanda(item)" class="text-xs font-bold text-sky-700 hover:text-sky-900">Tratar Demanda &rarr;</button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
       <!-- Indicadores Rápidos -->
       <section class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
         <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
@@ -227,12 +272,10 @@
                         'bg-slate-100 text-slate-600': d.grau_risco === 'Baixo'
                       }" x-text="d.grau_risco"></span>
                   </td>
-                  
                   <td class="p-4">
                     <div class="font-mono text-xs font-semibold" x-text="formatarData(d.prazo_fatal)"></div>
                     <div class="mt-1" x-html="renderizarBadgePrazo(d.prazo_fatal, d.status)"></div>
                   </td>
-
                   <td class="p-4">
                     <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
                       :class="d.status === 'Concluída' ? 'bg-emerald-100 text-emerald-700' : (d.status === 'Em andamento' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700')"
@@ -266,12 +309,60 @@
       </section>
     </div>
 
-    <!-- ==================== ABA 2: CALENDÁRIO & REUNIÕES ==================== -->
+    <!-- ==================== ABA 2: PAINEL DE INDICADORES (CHART.JS) ==================== -->
+    <div x-show="abaAtiva === 'indicadores'" x-cloak class="space-y-6">
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+        <div>
+          <h2 class="font-bold text-lg text-slate-800 flex items-center gap-2">
+            <i class="fa-solid fa-chart-line text-sky-600"></i> Painel Gerencial & Inteligência em Saúde
+          </h2>
+          <p class="text-xs text-slate-500">Métricas consolidadas de conformidade, volume por gestão e concentração de riscos</p>
+        </div>
+        <button @click="atualizarGraficos()" class="px-3 py-1.5 border border-slate-300 hover:bg-slate-50 rounded-lg text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+          <i class="fa-solid fa-arrows-rotate"></i> Recarregar Dados
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Gráfico 1: Esfera de Gestão -->
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div>
+            <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider mb-1">Fiscalizações por Esfera</h3>
+            <p class="text-[11px] text-slate-400 mb-4">Administração Direta vs Organização Social</p>
+          </div>
+          <div class="h-60 relative flex items-center justify-center">
+            <canvas id="chartGestao"></canvas>
+          </div>
+        </div>
+
+        <!-- Gráfico 2: Eixos Temáticos -->
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div>
+            <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider mb-1">Eixo Temático Fiscalizado</h3>
+            <p class="text-[11px] text-slate-400 mb-4">Distribuição assistencial, farmacêutica e contábil</p>
+          </div>
+          <div class="h-60 relative flex items-center justify-center">
+            <canvas id="chartEixos"></canvas>
+          </div>
+        </div>
+
+        <!-- Gráfico 3: Matriz de Risco -->
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div>
+            <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider mb-1">Classificação de Risco</h3>
+            <p class="text-[11px] text-slate-400 mb-4">Gravidade e criticidade do estoque de demandas</p>
+          </div>
+          <div class="h-60 relative flex items-center justify-center">
+            <canvas id="chartRisco"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== ABA 3: CALENDÁRIO & REUNIÕES ==================== -->
     <div x-show="abaAtiva === 'calendario'" x-cloak class="space-y-6">
-      
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        <!-- Grade do Calendário Mensal (2 Colunas) -->
         <div class="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm p-5">
           <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
             <div class="flex items-center gap-3">
@@ -285,12 +376,10 @@
             </div>
           </div>
 
-          <!-- Dias da Semana -->
           <div class="grid grid-cols-7 gap-1 text-center font-bold text-xs text-slate-500 mb-2">
             <div>Dom</div><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div>
           </div>
 
-          <!-- Grade dos Dias do Mês -->
           <div class="grid grid-cols-7 gap-1">
             <template x-for="(diaObj, idx) in diasCalendario" :key="idx">
               <div 
@@ -308,7 +397,6 @@
                   <span x-show="obterReunioesDoDia(diaObj.dataIso).length > 0" class="text-[10px] font-bold px-1.5 py-0.2 bg-emerald-600 text-white rounded-full" x-text="obterReunioesDoDia(diaObj.dataIso).length"></span>
                 </div>
 
-                <!-- Prévia de Reuniões no dia -->
                 <div class="space-y-0.5 mt-1 overflow-hidden">
                   <template x-for="r in obterReunioesDoDia(diaObj.dataIso).slice(0, 2)" :key="r.id">
                     <div class="text-[10px] truncate px-1 py-0.5 rounded bg-emerald-100 text-emerald-800 font-medium" :title="r.protocolo" x-text="r.protocolo"></div>
@@ -319,7 +407,6 @@
           </div>
         </div>
 
-        <!-- Painel Lateral: Reuniões do Dia Selecionado ou Próximas (1 Coluna) -->
         <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex flex-col justify-between">
           <div>
             <div class="flex justify-between items-center mb-3 pb-2 border-b">
@@ -332,7 +419,6 @@
               </button>
             </div>
 
-            <!-- Lista de Reuniões -->
             <div class="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
               <template x-for="r in reunioesFiltradasLateral" :key="r.id">
                 <div class="p-3 bg-slate-50 hover:bg-emerald-50/50 border rounded-xl transition space-y-1.5">
@@ -370,7 +456,103 @@
         </div>
 
       </div>
+    </div>
 
+    <!-- MODAL: RELATÓRIO MENSAL EXECUTIVO (MODO APRESENTAÇÃO/A4) -->
+    <div x-show="modalRelatorioMensal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
+      <div class="bg-white rounded-xl max-w-4xl w-full p-8 shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[94vh]" @click.away="modalRelatorioMensal = false">
+        
+        <div id="area-relatorio-executivo" class="overflow-y-auto space-y-6 text-sm pr-2 flex-1">
+          <!-- Cabeçalho Timbrado Oficial -->
+          <div class="border-b-2 border-slate-800 pb-4 text-center space-y-1">
+            <h2 class="text-lg font-bold tracking-tight text-slate-900 uppercase">Prefeitura Municipal &bull; Secretaria de Saúde</h2>
+            <h3 class="text-sm font-semibold text-sky-900">Subsecretaria de Fiscalização e Avaliação da Saúde</h3>
+            <p class="text-xs text-slate-500 font-mono" x-text="'Relatório Mensal Executivo de Auditoria &bull; ' + dataRelatorioExtenso"></p>
+          </div>
+
+          <!-- Sumário Executivo de Indicadores -->
+          <div class="grid grid-cols-4 gap-3 text-center">
+            <div class="p-3 bg-slate-50 border rounded-lg">
+              <span class="text-[11px] text-slate-500 uppercase font-semibold block">Total de Fiscalizações</span>
+              <span class="text-xl font-bold text-slate-800" x-text="demandasApenasFiscalizacao.length"></span>
+            </div>
+            <div class="p-3 bg-slate-50 border rounded-lg">
+              <span class="text-[11px] text-slate-500 uppercase font-semibold block">Concluídas / Baixadas</span>
+              <span class="text-xl font-bold text-emerald-700" x-text="demandasApenasFiscalizacao.filter(d => d.status === 'Concluída').length"></span>
+            </div>
+            <div class="p-3 bg-slate-50 border rounded-lg">
+              <span class="text-[11px] text-slate-500 uppercase font-semibold block">Em Andamento</span>
+              <span class="text-xl font-bold text-amber-700" x-text="demandasApenasFiscalizacao.filter(d => d.status !== 'Concluída').length"></span>
+            </div>
+            <div class="p-3 bg-slate-50 border rounded-lg">
+              <span class="text-[11px] text-slate-500 uppercase font-semibold block">Processos de Alto Risco</span>
+              <span class="text-xl font-bold text-rose-700" x-text="demandasApenasFiscalizacao.filter(d => d.grau_risco === 'Crítico' || d.grau_risco === 'Alto').length"></span>
+            </div>
+          </div>
+
+          <!-- Destaques de Fiscalizações de Risco / Órgãos Externos -->
+          <div>
+            <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 border-b pb-1">
+              1. Principais Demandas e Fiscalizações com Órgãos de Controle (MP / TCE / Ouvidoria)
+            </h4>
+            <div class="divide-y border rounded-lg overflow-hidden text-xs">
+              <template x-for="d in demandasApenasFiscalizacao.filter(d => d.grau_risco === 'Crítico' || d.origem === 'Ministério Público' || d.origem === 'Tribunal de Contas').slice(0, 5)" :key="d.id">
+                <div class="p-2.5 bg-white flex justify-between items-center gap-3">
+                  <div>
+                    <span class="font-bold text-slate-800" x-text="d.protocolo"></span>
+                    <span class="text-slate-500 font-medium" x-text="' &bull; ' + (d.unidade_nome || 'Geral') + ' (' + obterEsferaGestao(d) + ')'"></span>
+                    <p class="text-[11px] text-slate-600 line-clamp-1" x-text="d.descricao"></p>
+                  </div>
+                  <div class="text-right whitespace-nowrap">
+                    <span class="font-bold" :class="d.grau_risco === 'Crítico' ? 'text-rose-600' : 'text-amber-600'" x-text="d.grau_risco"></span>
+                    <span class="text-[11px] text-slate-400 block" x-text="'Prazo: ' + formatarData(d.prazo_fatal)"></span>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Reuniões e Alinhamentos Institucionais -->
+          <div>
+            <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 border-b pb-1">
+              2. Reuniões de Alinhamento e Governança com Gestores e Organizações Sociais
+            </h4>
+            <div class="divide-y border rounded-lg overflow-hidden text-xs">
+              <template x-for="r in reunioes.slice(0, 4)" :key="r.id">
+                <div class="p-2.5 bg-white flex justify-between items-center gap-3">
+                  <div>
+                    <span class="font-bold text-slate-800" x-text="r.protocolo"></span>
+                    <span class="text-slate-500" x-text="' &bull; ' + (r.unidade_nome || 'Sede da Subsecretaria')"></span>
+                    <p class="text-[11px] text-slate-600 line-clamp-1" x-text="r.descricao"></p>
+                  </div>
+                  <div class="text-right whitespace-nowrap font-mono text-[11px] text-slate-600 font-semibold" x-text="formatarData(r.prazo_fatal)"></div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Assinatura Institucional -->
+          <div class="pt-8 grid grid-cols-2 gap-8 text-center text-xs">
+            <div>
+              <div class="border-t border-slate-400 w-3/4 mx-auto pt-1 font-semibold text-slate-800">Comissão de Fiscalização e Auditoria</div>
+              <span class="text-[10px] text-slate-500">Equipe Técnica</span>
+            </div>
+            <div>
+              <div class="border-t border-slate-400 w-3/4 mx-auto pt-1 font-semibold text-slate-800">Subsecretaria de Fiscalização da Saúde</div>
+              <span class="text-[10px] text-slate-500">Gestão e Governança</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="border-t pt-4 mt-3 flex justify-between items-center no-print">
+          <button type="button" @click="imprimirRelatorio()" class="px-4 py-2 bg-indigo-700 hover:bg-indigo-600 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
+            <i class="fa-solid fa-print"></i> Imprimir / Salvar PDF
+          </button>
+          <button type="button" @click="modalRelatorioMensal = false" class="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold transition">
+            Fechar
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Modal de Visualização, Impressão e Despachos -->
@@ -476,7 +658,7 @@
       </div>
     </div>
 
-    <!-- Modal de Cadastro de Demanda (Fiscalização) -->
+    <!-- Modal de Cadastro de Demanda -->
     <div x-show="abrirModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
       <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-slate-200" @click.away="abrirModal = false">
         <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
@@ -583,7 +765,7 @@
       </div>
     </div>
 
-    <!-- MODAL ESPECÍFICO: AGENDAR REUNIÃO -->
+    <!-- MODAL: AGENDAR REUNIÃO -->
     <div x-show="abrirModalNovaReuniao" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
       <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-slate-200" @click.away="abrirModalNovaReuniao = false">
         <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
@@ -730,11 +912,12 @@
 
     function fisaApp() {
       return {
-        abaAtiva: 'fiscalizacoes', // 'fiscalizacoes' ou 'calendario'
+        abaAtiva: 'fiscalizacoes', // 'fiscalizacoes' | 'indicadores' | 'calendario'
         abrirModal: false,
         abrirModalNovaReuniao: false,
         abrirModalUnidade: false,
         modalVisualizar: false,
+        modalRelatorioMensal: false,
         demandaVisualizada: null,
         carregando: false,
         salvando: false,
@@ -750,6 +933,11 @@
         // Estado do Calendário
         dataCalendarioAtual: new Date(),
         diaSelecionadoIso: null,
+
+        // Instâncias do Chart.js
+        chartGestaoInstancia: null,
+        chartEixosInstancia: null,
+        chartRiscoInstancia: null,
 
         novoDespachoTexto: '',
         novoDespachoAutor: 'Fiscalização',
@@ -809,11 +997,23 @@
           }
         },
 
+        mudarAba(aba) {
+          this.abaAtiva = aba;
+          if (aba === 'indicadores') {
+            this.$nextTick(() => {
+              this.atualizarGraficos();
+            });
+          }
+        },
+
         async carregarDemandas() {
           try {
             const res = await fetch(`${API_URL}/api/demandas`);
             if (!res.ok) throw new Error();
             this.demandas = await res.json();
+            if (this.abaAtiva === 'indicadores') {
+              this.atualizarGraficos();
+            }
           } catch (err) {
             this.mostrarToast('Erro ao sincronizar dados com o servidor.', 'erro');
           }
@@ -828,7 +1028,125 @@
           }
         },
 
-        // --- LÓGICA DO CALENDÁRIO ---
+        // --- MATRIZ DE RISCO / ALERTA PRIORITÁRIO ---
+        get alertasPrioritarios() {
+          return this.demandasApenasFiscalizacao.filter(d => {
+            if (d.status === 'Concluída') return false;
+            const riscoAlto = d.grau_risco === 'Crítico' || d.grau_risco === 'Alto';
+            const orgaoExterno = d.origem === 'Ministério Público' || d.origem === 'Tribunal de Contas';
+            const vencidoOuQuase = this.diasAtePrazo(d.prazo_fatal) <= 3;
+            return (riscoAlto && vencidoOuQuase) || (orgaoExterno && vencidoOuQuase) || d.grau_risco === 'Crítico';
+          }).slice(0, 6);
+        },
+
+        diasAtePrazo(dataIso) {
+          if (!dataIso) return 999;
+          const hoje = new Date();
+          hoje.setHours(0, 0, 0, 0);
+          const [ano, mes, dia] = dataIso.substring(0, 10).split('-');
+          const prazo = new Date(Number(ano), Number(mes) - 1, Number(dia));
+          prazo.setHours(0, 0, 0, 0);
+          return Math.round((prazo - hoje) / (1000 * 60 * 60 * 24));
+        },
+
+        // --- PAINEL DE INDICADORES (CHART.JS) ---
+        atualizarGraficos() {
+          const dadosFiscalizacao = this.demandasApenasFiscalizacao;
+
+          // 1. Gráfico Gestão
+          const totalDireta = dadosFiscalizacao.filter(d => this.obterEsferaGestao(d) === 'Administração Municipal (Direta)').length;
+          const totalOS = dadosFiscalizacao.filter(d => this.obterEsferaGestao(d) === 'Organização Social (OS)').length;
+
+          const ctxGestao = document.getElementById('chartGestao');
+          if (ctxGestao) {
+            if (this.chartGestaoInstancia) this.chartGestaoInstancia.destroy();
+            this.chartGestaoInstancia = new Chart(ctxGestao, {
+              type: 'doughnut',
+              data: {
+                labels: ['Administração Direta', 'Organização Social (OS)'],
+                datasets: [{
+                  data: [totalDireta, totalOS],
+                  backgroundColor: ['#0284c7', '#7e22ce']
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
+              }
+            });
+          }
+
+          // 2. Gráfico Eixos
+          const contagemEixos = {};
+          dadosFiscalizacao.forEach(d => {
+            const eixo = d.tipo_fiscalizacao || 'Outros';
+            contagemEixos[eixo] = (contagemEixos[eixo] || 0) + 1;
+          });
+
+          const ctxEixos = document.getElementById('chartEixos');
+          if (ctxEixos) {
+            if (this.chartEixosInstancia) this.chartEixosInstancia.destroy();
+            this.chartEixosInstancia = new Chart(ctxEixos, {
+              type: 'bar',
+              data: {
+                labels: Object.keys(contagemEixos),
+                datasets: [{
+                  label: 'Demandas',
+                  data: Object.values(contagemEixos),
+                  backgroundColor: '#0ea5e9'
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 } } }, x: { ticks: { font: { size: 10 } } } }
+              }
+            });
+          }
+
+          // 3. Gráfico Risco
+          const criticos = dadosFiscalizacao.filter(d => d.grau_risco === 'Crítico').length;
+          const altos = dadosFiscalizacao.filter(d => d.grau_risco === 'Alto').length;
+          const medios = dadosFiscalizacao.filter(d => d.grau_risco === 'Médio').length;
+          const baixos = dadosFiscalizacao.filter(d => d.grau_risco === 'Baixo').length;
+
+          const ctxRisco = document.getElementById('chartRisco');
+          if (ctxRisco) {
+            if (this.chartRiscoInstancia) this.chartRiscoInstancia.destroy();
+            this.chartRiscoInstancia = new Chart(ctxRisco, {
+              type: 'pie',
+              data: {
+                labels: ['Crítico', 'Alto', 'Médio', 'Baixo'],
+                datasets: [{
+                  data: [criticos, altos, medios, baixos],
+                  backgroundColor: ['#e11d48', '#f59e0b', '#3b82f6', '#94a3b8']
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
+              }
+            });
+          }
+        },
+
+        // --- RELATÓRIO MENSAL EXECUTIVO ---
+        abrirRelatorioMensal() {
+          this.modalRelatorioMensal = true;
+        },
+
+        imprimirRelatorio() {
+          window.print();
+        },
+
+        get dataRelatorioExtenso() {
+          return new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase();
+        },
+
+        // --- CALENDÁRIO ---
         get nomeMesAtual() {
           return this.dataCalendarioAtual.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
         },
@@ -856,9 +1174,8 @@
           const ultimoDia = new Date(ano, mes + 1, 0);
 
           const dias = [];
-          const diaSemanaInicio = primeiroDia.getDay(); // 0 (Dom) a 6 (Sab)
+          const diaSemanaInicio = primeiroDia.getDay();
 
-          // Dias do mês anterior para completar a semana
           const ultimoDiaMesAnterior = new Date(ano, mes, 0).getDate();
           for (let i = diaSemanaInicio - 1; i >= 0; i--) {
             const diaNum = ultimoDiaMesAnterior - i;
@@ -866,7 +1183,6 @@
             dias.push({ numeroDia: diaNum, dataIso, mesmoMes: false, ehHoje: false });
           }
 
-          // Dias do mês atual
           const hojeIso = new Date().toISOString().substring(0, 10);
           for (let i = 1; i <= ultimoDia.getDate(); i++) {
             const dataIso = `${ano}-${String(mes + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
@@ -878,7 +1194,6 @@
             });
           }
 
-          // Dias do próximo mês para completar 35 ou 42 células
           const totalCelulas = dias.length <= 35 ? 35 : 42;
           const restantes = totalCelulas - dias.length;
           for (let i = 1; i <= restantes; i++) {
@@ -893,11 +1208,6 @@
           return this.demandas.filter(d => d.tipo_fiscalizacao === 'Reunião');
         },
 
-        get reunioesFuturas() {
-          const hojeIso = new Date().toISOString().substring(0, 10);
-          return this.reunioes.filter(r => (r.prazo_fatal || '') >= hojeIso && r.status !== 'Concluída');
-        },
-
         obterReunioesDoDia(dataIso) {
           if (!dataIso) return [];
           return this.reunioes.filter(r => r.prazo_fatal && r.prazo_fatal.substring(0, 10) === dataIso);
@@ -907,7 +1217,6 @@
           if (this.diaSelecionadoIso) {
             return this.obterReunioesDoDia(this.diaSelecionadoIso);
           }
-          // Mostra as próximas reuniões por padrão
           return this.reunioes.slice(0, 8);
         },
 
@@ -952,7 +1261,7 @@
           }
         },
 
-        // --- FILTROS E FISCALIZAÇÕES ---
+        // --- FILTROS E OPERAÇÃO ---
         get demandasApenasFiscalizacao() {
           return this.demandas.filter(d => d.tipo_fiscalizacao !== 'Reunião');
         },
@@ -1024,7 +1333,7 @@
             
             this.formDemanda.unidade_id = novaUnidade.id;
             this.formUnidade.nome_fantasia = '';
-            this.mostrarToast(`Unidade "${novaUnidade.nome_fantasia}" cadastrada com sucesso!`);
+            this.mostrarToast(`Unidade "${novaUnidade.nome_fantasia}" cadastrada!`);
           } catch (err) {
             this.mostrarToast(err.message, 'erro');
           } finally {
@@ -1155,7 +1464,7 @@
             
             this.abrirModal = false;
             await this.carregarDemandas();
-            this.mostrarToast(`Demanda ${payload.protocolo} protocolada com sucesso!`);
+            this.mostrarToast(`Demanda ${payload.protocolo} cadastrada com sucesso!`);
           } catch (err) {
             this.mostrarToast(err.message, 'erro');
           } finally {
@@ -1174,6 +1483,7 @@
             if (res.ok) {
               d.status = proximoStatus;
               this.mostrarToast(`Status alterado para: ${proximoStatus}`);
+              if (this.abaAtiva === 'indicadores') this.atualizarGraficos();
             }
           } catch (err) {
             this.mostrarToast('Não foi possível atualizar o status.', 'erro');
