@@ -25,7 +25,7 @@
       </div>
       <div class="flex items-center gap-2">
         <button @click="abrirModalNovaUnidade()" class="bg-sky-800 hover:bg-sky-700 border border-sky-600 text-white px-3.5 py-2 rounded-lg font-medium text-sm flex items-center transition shadow">
-          <i class="fa-solid fa-hospital mr-2"></i> Nova Unidade
+          <i class="fa-solid fa-hospital mr-2"></i> Gerenciar Unidades
         </button>
         <button @click="abrirNovoModal()" class="bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center transition shadow">
           <i class="fa-solid fa-plus mr-2"></i> Nova Demanda
@@ -271,7 +271,7 @@
             <div class="flex justify-between items-center mb-1">
               <label class="block text-xs font-medium text-slate-600">Unidade de Saúde Alvo</label>
               <button type="button" @click="abrirModalNovaUnidade()" class="text-xs text-sky-600 hover:text-sky-800 font-semibold flex items-center gap-1">
-                <i class="fa-solid fa-plus-circle"></i> Cadastrar Nova Unidade
+                <i class="fa-solid fa-gear"></i> Gerenciar Unidades
               </button>
             </div>
             <select x-model="formDemanda.unidade_id" class="w-full border rounded px-3 py-1.5 text-sm bg-white">
@@ -332,44 +332,85 @@
       </div>
     </div>
 
-    <!-- Modal: Cadastro de Unidade de Saúde (Apenas Nome e Tipo) -->
+    <!-- MODAL: Gerenciar / Adicionar / Excluir Unidades de Saúde -->
     <div x-show="abrirModalUnidade" class="fixed inset-0 bg-slate-900 bg-opacity-50 flex items-center justify-center p-4 z-50" x-cloak>
-      <div class="bg-white rounded-xl max-w-md w-full p-6 shadow-xl border border-slate-200" @click.away="abrirModalUnidade = false">
+      <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-xl border border-slate-200 max-h-[90vh] flex flex-col" @click.away="abrirModalUnidade = false">
+        
         <div class="flex justify-between items-center border-b pb-3 mb-4">
           <div class="flex items-center gap-2">
             <span class="p-2 bg-sky-100 text-sky-800 rounded-lg"><i class="fa-solid fa-hospital"></i></span>
-            <h3 class="text-base font-bold text-slate-800">Cadastrar Nova Unidade</h3>
+            <h3 class="text-base font-bold text-slate-800">Gerenciar Unidades de Saúde</h3>
           </div>
           <button @click="abrirModalUnidade = false" class="text-slate-400 hover:text-slate-600">
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
 
-        <form @submit.prevent="salvarUnidade" class="space-y-4">
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Nome Fantasia da Unidade *</label>
-            <input type="text" x-model="formUnidade.nome_fantasia" required placeholder="Ex: Hospital Municipal Nossa Senhora de Nazareth" class="w-full border rounded px-3 py-1.5 text-sm">
-          </div>
+        <div class="overflow-y-auto space-y-6 flex-1 pr-1">
+          <!-- Formulário de cadastro de nova unidade -->
+          <form @submit.prevent="salvarUnidade" class="space-y-3 bg-slate-50 p-3.5 rounded-lg border border-slate-200">
+            <span class="text-xs font-bold text-sky-900 uppercase block mb-1">Cadastrar Nova Unidade</span>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Nome Fantasia da Unidade *</label>
+              <input type="text" x-model="formUnidade.nome_fantasia" required placeholder="Ex: Hospital Municipal Nossa Senhora de Nazareth" class="w-full border rounded px-3 py-1.5 text-sm bg-white">
+            </div>
 
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Tipo de Unidade</label>
-            <select x-model="formUnidade.tipo_unidade" class="w-full border rounded px-3 py-1.5 text-sm">
-              <option>Atenção Básica (ESF/UBS)</option>
-              <option>Urgência/Emergência (UPA/PA)</option>
-              <option>Hospitalar</option>
-              <option>Especializada (Policlínica/CEO)</option>
-              <option>Administrativa/Almoxarifado</option>
-            </select>
-          </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Tipo de Unidade</label>
+              <select x-model="formUnidade.tipo_unidade" class="w-full border rounded px-3 py-1.5 text-sm bg-white">
+                <option>Atenção Básica (ESF/UBS)</option>
+                <option>Urgência/Emergência (UPA/PA)</option>
+                <option>Hospitalar</option>
+                <option>Especializada (Policlínica/CEO)</option>
+                <option>Administrativa/Almoxarifado</option>
+              </select>
+            </div>
 
-          <div class="flex justify-end gap-2 pt-4 border-t">
-            <button type="button" @click="abrirModalUnidade = false" class="px-4 py-2 border rounded-lg text-sm text-slate-600 hover:bg-slate-50">Cancelar</button>
-            <button type="submit" :disabled="salvandoUnidade" class="px-4 py-2 bg-sky-800 text-white rounded-lg text-sm font-semibold hover:bg-sky-700 flex items-center">
-              <span x-show="!salvandoUnidade">Salvar Unidade</span>
-              <span x-show="salvandoUnidade"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...</span>
-            </button>
+            <div class="flex justify-end pt-2">
+              <button type="submit" :disabled="salvandoUnidade" class="px-4 py-1.5 bg-sky-800 text-white rounded-lg text-xs font-semibold hover:bg-sky-700 flex items-center shadow-sm">
+                <span x-show="!salvandoUnidade"><i class="fa-solid fa-plus mr-1"></i> Cadastrar Unidade</span>
+                <span x-show="salvandoUnidade"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Salvando...</span>
+              </button>
+            </div>
+          </form>
+
+          <!-- Lista de Unidades Cadastradas com botão para exclusão -->
+          <div>
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-xs font-bold text-slate-700 uppercase">Unidades Existentes (<span x-text="unidades.length"></span>)</span>
+            </div>
+            
+            <div class="divide-y divide-slate-200 border rounded-lg overflow-hidden bg-white max-h-56 overflow-y-auto">
+              <template x-for="u in unidades" :key="u.id">
+                <div class="p-2.5 flex items-center justify-between hover:bg-slate-50 transition text-sm">
+                  <div>
+                    <p class="font-medium text-slate-800" x-text="u.nome_fantasia"></p>
+                    <span class="text-xs text-slate-400" x-text="u.tipo_unidade"></span>
+                  </div>
+                  <button 
+                    type="button"
+                    @click="excluirUnidade(u.id, u.nome_fantasia)"
+                    class="p-1.5 text-rose-600 hover:text-white hover:bg-rose-600 border border-rose-200 rounded transition text-xs flex items-center gap-1"
+                    title="Excluir Unidade">
+                    <i class="fa-regular fa-trash-can"></i> Excluir
+                  </button>
+                </div>
+              </template>
+              <template x-if="unidades.length === 0">
+                <div class="p-4 text-center text-xs text-slate-400">
+                  Nenhuma unidade de saúde cadastrada.
+                </div>
+              </template>
+            </div>
           </div>
-        </form>
+        </div>
+
+        <div class="border-t pt-3 mt-4 flex justify-end">
+          <button type="button" @click="abrirModalUnidade = false" class="px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white rounded-lg text-xs font-medium transition">
+            Fechar
+          </button>
+        </div>
+
       </div>
     </div>
 
@@ -480,12 +521,36 @@
             await this.carregarUnidades();
             
             this.formDemanda.unidade_id = novaUnidade.id;
-            this.abrirModalUnidade = false;
+            this.formUnidade.nome_fantasia = '';
             alert(`Unidade "${novaUnidade.nome_fantasia}" cadastrada com sucesso!`);
           } catch (err) {
             alert('Erro ao cadastrar unidade: ' + err.message);
           } finally {
             this.salvandoUnidade = false;
+          }
+        },
+
+        async excluirUnidade(id, nome) {
+          const confirmacao = confirm(`Deseja realmente excluir a unidade "${nome}"?`);
+          if (!confirmacao) return;
+
+          try {
+            const res = await fetch(`${API_URL}/api/unidades/${id}`, {
+              method: 'DELETE'
+            });
+
+            if (!res.ok) {
+              const err = await res.json();
+              throw new Error(err.error || 'Não foi possível excluir a unidade.');
+            }
+
+            await this.carregarUnidades();
+            if (this.formDemanda.unidade_id === id) {
+              this.formDemanda.unidade_id = '';
+            }
+            alert(`Unidade "${nome}" excluída com sucesso!`);
+          } catch (err) {
+            alert(err.message);
           }
         },
 
