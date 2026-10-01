@@ -13,7 +13,10 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Listar demandas ativas com o nome da unidade vinculada
+// Rota de Health Check para acordar a API rapidamente
+app.get('/api/ping', (req, res) => res.json({ status: 'online', timestamp: new Date() }));
+
+// Listar demandas com dados da unidade
 app.get('/api/demandas', async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -38,7 +41,7 @@ app.get('/api/demandas', async (req, res) => {
   }
 });
 
-// Listar todas as unidades de saúde
+// Listar unidades
 app.get('/api/unidades', async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -58,7 +61,7 @@ app.get('/api/unidades', async (req, res) => {
   }
 });
 
-// Cadastrar nova unidade de saúde (com CNES único gerado automaticamente para contornar UNIQUE)
+// Cadastrar unidade
 app.post('/api/unidades', async (req, res) => {
   const { nome_fantasia, tipo_unidade } = req.body;
   try {
@@ -80,29 +83,29 @@ app.post('/api/unidades', async (req, res) => {
       .select();
 
     if (error) {
-      console.error('Erro detalhado no Supabase POST /unidades:', error);
+      console.error('Erro Supabase POST /unidades:', error);
       return res.status(500).json({ error: error.message });
     }
 
     res.status(201).json(data[0]);
   } catch (err) {
-    console.error('Erro interno na API POST /unidades:', err);
+    console.error('Erro interno POST /unidades:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Excluir unidade de saúde por ID
+// Excluir unidade
 app.delete('/api/unidades/:id', async (req, res) => {
   const { id } = req.params;
   try {
-    const { count: demandasVinculadas } = await supabase
+    const { count: vinculadas } = await supabase
       .from('demandas')
       .select('*', { count: 'exact', head: true })
       .eq('unidade_id', id);
 
-    if (demandasVinculadas && demandasVinculadas > 0) {
+    if (vinculadas && vinculadas > 0) {
       return res.status(400).json({
-        error: `Não é possível excluir esta unidade pois existem ${demandasVinculadas} demanda(s) vinculada(s) a ela.`
+        error: `Não é possível excluir: existem ${vinculadas} demanda(s) vinculada(s) a esta unidade.`
       });
     }
 
@@ -112,19 +115,15 @@ app.delete('/api/unidades/:id', async (req, res) => {
       .eq('id', id)
       .select();
 
-    if (error) {
-      console.error('Erro ao excluir unidade no Supabase:', error);
-      return res.status(500).json({ error: error.message });
-    }
-
+    if (error) throw error;
     res.json({ message: 'Unidade excluída com sucesso', deletado: data });
   } catch (err) {
-    console.error('Erro interno ao excluir unidade:', err);
+    console.error('Erro ao excluir unidade:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Cadastrar nova demanda (com campo esfera_gestao / tipo de executor)
+// Cadastrar demanda
 app.post('/api/demandas', async (req, res) => {
   const { 
     protocolo, 
@@ -150,11 +149,7 @@ app.post('/api/demandas', async (req, res) => {
       responsavel_atribuido: responsavel_atribuido || 'Comissão de Auditoria'
     };
 
-    // Caso a coluna exista no banco, inclui esfera_gestao; se não existir, grava dentro da descrição ou campo auxiliar
-    if (esfera_gestao) {
-      payload.esfera_gestao = esfera_gestao;
-    }
-
+    if (esfera_gestao) payload.esfera_gestao = esfera_gestao;
     if (unidade_id && typeof unidade_id === 'string' && unidade_id.trim() !== '') {
       payload.unidade_id = unidade_id.trim();
     } else {
@@ -170,20 +165,20 @@ app.post('/api/demandas', async (req, res) => {
       .insert([payload])
       .select('*, unidades_saude(nome_fantasia)');
 
-    // Fallback: se a coluna 'esfera_gestao' ainda não tiver sido criada no Supabase, insere com tag no topo da descrição
+    // Fallback caso a coluna esfera_gestao não exista fisicamente no schema
     if (error && error.message.includes('esfera_gestao')) {
       delete payload.esfera_gestao;
-      payload.descricao = `[GESTÃO: ${esfera_gestao || 'Município'}]\n` + payload.descricao;
-      const tentativa = await supabase
+      payload.descricao = `[GESTÃO: ${esfera_gestao || 'Administração Municipal (Direta)'}]\n` + payload.descricao;
+      const fallback = await supabase
         .from('demandas')
         .insert([payload])
         .select('*, unidades_saude(nome_fantasia)');
-      data = tentativa.data;
-      error = tentativa.error;
+      data = fallback.data;
+      error = fallback.error;
     }
 
     if (error) {
-      console.error('Erro detalhado no Supabase POST /demandas:', error);
+      console.error('Erro detalhado POST /demandas:', error);
       return res.status(500).json({ error: error.message });
     }
 
@@ -193,30 +188,85 @@ app.post('/api/demandas', async (req, res) => {
       unidade_nome: item.unidades_saude?.nome_fantasia || 'Unidade Geral'
     });
   } catch (err) {
-    console.error('Erro interno na API POST /demandas:', err);
+    console.error('Erro interno POST /demandas:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Atualizar status da demanda
+// Atualizar status da demanda (grava data de conclusão automaticamente)
 app.patch('/api/demandas/:id/status', async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
   try {
+    const updatePayload = { status };
+    if (status === 'Concluída') {
+      updatePayload.data_conclusao = new Date().toISOString();
+    }
+
+    let { data, error } = await supabase
+      .from('demandas')
+      .update(updatePayload)
+      .eq('id', id)
+      .select();
+
+    // Fallback caso a coluna data_conclusao não exista na tabela
+    if (error && error.message.includes('data_conclusao')) {
+      delete updatePayload.data_conclusao;
+      const fallback = await supabase
+        .from('demandas')
+        .update(updatePayload)
+        .eq('id', id)
+        .select();
+      data = fallback.data;
+      error = fallback.error;
+    }
+
+    if (error) throw error;
+    res.json(data[0]);
+  } catch (err) {
+    console.error('Erro ao atualizar status:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Adicionar despacho / histórico de andamento na demanda
+app.post('/api/demandas/:id/despachos', async (req, res) => {
+  const { id } = req.params;
+  const { texto, autor } = req.body;
+  try {
+    if (!texto || texto.trim() === '') {
+      return res.status(400).json({ error: 'O texto do despacho é obrigatório.' });
+    }
+
+    // Busca o texto atual da descrição
+    const { data: demanda, error: errBusca } = await supabase
+      .from('demandas')
+      .select('descricao')
+      .eq('id', id)
+      .single();
+
+    if (errBusca) throw errBusca;
+
+    const dataAtual = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+    const horaAtual = new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+    const novoDespacho = `\n\n--- [DESPACHO ${dataAtual} às ${horaAtual} - ${autor || 'Fiscalização'}]:\n${texto.trim()}`;
+    const novaDescricao = (demanda.descricao || '') + novoDespacho;
+
     const { data, error } = await supabase
       .from('demandas')
-      .update({ status })
+      .update({ descricao: novaDescricao })
       .eq('id', id)
       .select();
 
     if (error) throw error;
     res.json(data[0]);
   } catch (err) {
+    console.error('Erro ao inserir despacho:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Excluir demanda por ID
+// Excluir demanda
 app.delete('/api/demandas/:id', async (req, res) => {
   const { id } = req.params;
   try {
@@ -226,27 +276,10 @@ app.delete('/api/demandas/:id', async (req, res) => {
       .eq('id', id)
       .select();
 
-    if (error) {
-      console.error('Erro ao excluir no Supabase:', error);
-      return res.status(500).json({ error: error.message });
-    }
-
+    if (error) throw error;
     res.json({ message: 'Demanda excluída com sucesso', deletado: data });
   } catch (err) {
-    console.error('Erro interno ao excluir:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Métricas de Painel (Dashboard)
-app.get('/api/dashboard/stats', async (req, res) => {
-  try {
-    const { count: total } = await supabase.from('demandas').select('*', { count: 'exact', head: true });
-    const { count: criticas } = await supabase.from('demandas').select('*', { count: 'exact', head: true }).eq('grau_risco', 'Crítico');
-    const { count: concluidas } = await supabase.from('demandas').select('*', { count: 'exact', head: true }).eq('status', 'Concluída');
-
-    res.json({ total, criticas, concluidas });
-  } catch (err) {
+    console.error('Erro ao excluir:', err);
     res.status(500).json({ error: err.message });
   }
 });
