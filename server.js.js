@@ -140,6 +140,13 @@ app.post('/api/demandas', async (req, res) => {
   } = req.body;
 
   try {
+    let limpaUnidadeId = null;
+    if (unidade_id && typeof unidade_id === 'string' && unidade_id.trim() !== '') {
+      limpaUnidadeId = unidade_id.trim();
+    } else if (unidade_id && typeof unidade_id !== 'string') {
+      limpaUnidadeId = unidade_id;
+    }
+
     const payload = {
       protocolo: protocolo || 'SEM PROTOCOLO',
       origem: origem || 'Rotina da Subsecretaria',
@@ -148,17 +155,11 @@ app.post('/api/demandas', async (req, res) => {
       prazo_fatal: prazo_fatal || null,
       descricao: descricao || '',
       responsavel_atribuido: responsavel_atribuido || 'Comissão de Auditoria',
-      status: status || 'Triagem'
+      status: status || 'Triagem',
+      unidade_id: limpaUnidadeId
     };
 
     if (esfera_gestao) payload.esfera_gestao = esfera_gestao;
-
-    if (unidade_id && typeof unidade_id === 'string' && unidade_id.trim() !== '') {
-      payload.unidade_id = unidade_id.trim();
-    } else {
-      payload.unidade_id = null;
-    }
-
     if (numero_sei && typeof numero_sei === 'string' && numero_sei.trim() !== '') {
       payload.numero_sei = numero_sei.trim();
     }
@@ -166,15 +167,16 @@ app.post('/api/demandas', async (req, res) => {
     let { data, error } = await supabase
       .from('demandas')
       .insert([payload])
-      .select('*, unidades_saude(nome_fantasia)');
+      .select();
 
-    if (error && error.message.includes('esfera_gestao')) {
+    // Fallback caso a coluna esfera_gestao não exista no Supabase
+    if (error && error.message && error.message.includes('esfera_gestao')) {
       delete payload.esfera_gestao;
       payload.descricao = `[GESTÃO: ${esfera_gestao || 'Administração Municipal (Direta)'}]\n` + payload.descricao;
       const fallback = await supabase
         .from('demandas')
         .insert([payload])
-        .select('*, unidades_saude(nome_fantasia)');
+        .select();
       data = fallback.data;
       error = fallback.error;
     }
@@ -184,19 +186,16 @@ app.post('/api/demandas', async (req, res) => {
       return res.status(500).json({ error: error.message });
     }
 
-    const item = data[0];
-    res.status(201).json({
-      ...item,
-      unidade_nome: item.unidades_saude?.nome_fantasia || 'Unidade Geral'
-    });
+    res.status(201).json(data[0]);
   } catch (err) {
     console.error('Erro interno POST /demandas:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Atualizar Demanda Completa (PUT)
-app.put('/api/demandas/:id', async (req, res) => {
+// Handler único e seguro para ATUALIZAR Demanda (compatível com PUT e PATCH)
+const atualizarDemandaHandler = async (req, res) => {
+  const { id } = req.params;
   const { 
     protocolo, 
     origem, 
@@ -207,58 +206,73 @@ app.put('/api/demandas/:id', async (req, res) => {
     descricao, 
     responsavel_atribuido, 
     esfera_gestao,
-    status
+    status 
   } = req.body;
 
   try {
+    let limpaUnidadeId = null;
+    if (unidade_id && typeof unidade_id === 'string' && unidade_id.trim() !== '') {
+      limpaUnidadeId = unidade_id.trim();
+    } else if (unidade_id && typeof unidade_id !== 'string') {
+      limpaUnidadeId = unidade_id;
+    }
+
+    let limpaDescricao = descricao || '';
+    if (esfera_gestao && !limpaDescricao.includes('[GESTÃO:')) {
+      limpaDescricao = `[GESTÃO: ${esfera_gestao}]\n` + limpaDescricao;
+    }
+
     const payload = {
-      protocolo,
-      origem,
-      tipo_fiscalizacao,
-      grau_risco,
+      protocolo: protocolo || 'SEM PROTOCOLO',
+      origem: origem || 'Rotina da Subsecretaria',
+      tipo_fiscalizacao: tipo_fiscalizacao || 'Assistencial',
+      grau_risco: grau_risco || 'Médio',
       prazo_fatal: prazo_fatal || null,
-      descricao: descricao || '',
+      descricao: limpaDescricao,
       responsavel_atribuido: responsavel_atribuido || 'Comissão de Auditoria',
-      unidade_id: (unidade_id && unidade_id.trim() !== '') ? unidade_id.trim() : null
+      unidade_id: limpaUnidadeId
     };
 
     if (status) payload.status = status;
     if (esfera_gestao) payload.esfera_gestao = esfera_gestao;
 
+    // Atualização com select simples (sem joins que causam falhas no PostgREST)
     let { data, error } = await supabase
       .from('demandas')
       .update(payload)
       .eq('id', id)
-      .select('*, unidades_saude(nome_fantasia)');
+      .select();
 
-    if (error && error.message.includes('esfera_gestao')) {
+    // Fallback seguro caso a coluna esfera_gestao não exista no Supabase
+    if (error && error.message && error.message.includes('esfera_gestao')) {
       delete payload.esfera_gestao;
       const fallback = await supabase
         .from('demandas')
         .update(payload)
         .eq('id', id)
-        .select('*, unidades_saude(nome_fantasia)');
+        .select();
       data = fallback.data;
       error = fallback.error;
     }
 
     if (error) {
-      console.error('Erro PUT /demandas:', error);
+      console.error('Erro ao atualizar demanda no Supabase:', error);
       return res.status(500).json({ error: error.message });
     }
 
-    const item = data[0];
-    res.json({
-      ...item,
-      unidade_nome: item.unidades_saude?.nome_fantasia || 'Unidade Geral'
-    });
+    const atualizado = (data && data[0]) ? data[0] : { ...payload, id };
+    res.json(atualizado);
   } catch (err) {
-    console.error('Erro interno PUT /demandas:', err);
+    console.error('Erro interno ao atualizar demanda:', err);
     res.status(500).json({ error: err.message });
   }
-});
+};
 
-// Atualizar status da demanda
+app.put('/api/demandas/:id', atualizarDemandaHandler);
+app.patch('/api/demandas/:id', atualizarDemandaHandler);
+app.post('/api/demandas/:id', atualizarDemandaHandler);
+
+// Atualizar status individual da demanda
 app.patch('/api/demandas/:id/status', async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
@@ -274,7 +288,7 @@ app.patch('/api/demandas/:id/status', async (req, res) => {
       .eq('id', id)
       .select();
 
-    if (error && error.message.includes('data_conclusao')) {
+    if (error && error.message && error.message.includes('data_conclusao')) {
       delete updatePayload.data_conclusao;
       const fallback = await supabase
         .from('demandas')
