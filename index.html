@@ -1,4 +1,1621 @@
-async salvarDemanda() {
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIS-FISA | Subsecretaria de Fiscalização e Avaliação da Saúde</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    [x-cloak] { display: none !important; }
+
+    /* As folhas de impressão ficam ocultas na tela do computador */
+    .area-papel-impressao { display: none; }
+
+    @media print {
+      body {
+        background-color: white !important;
+        color: black !important;
+      }
+      /* Oculta tudo da interface web */
+      header, main, .no-print, [role="dialog"], .fixed {
+        display: none !important;
+      }
+
+      /* Controla a exibição exata do que foi solicitado imprimir */
+      body.imprimindo-demanda #folha-impressao-demanda {
+        display: block !important;
+        width: 100% !important;
+      }
+      body.imprimindo-dossie #folha-impressao-dossie {
+        display: block !important;
+        width: 100% !important;
+      }
+      body.imprimindo-relatorio #folha-impressao-relatorio {
+        display: block !important;
+        width: 100% !important;
+      }
+    }
+  </style>
+</head>
+<body 
+  class="bg-slate-100 text-slate-800 font-sans antialiased" 
+  :class="{
+    'imprimindo-demanda': modoImpressao === 'demanda',
+    'imprimindo-dossie': modoImpressao === 'dossie',
+    'imprimindo-relatorio': modoImpressao === 'relatorio'
+  }"
+  x-data="fisaApp()" 
+  x-init="iniciarApp()">
+
+  <!-- Notificações Toast Flutuantes -->
+  <div class="fixed top-5 right-5 z-50 flex flex-col gap-2 max-w-sm pointer-events-none no-print">
+    <template x-for="t in toasts" :key="t.id">
+      <div 
+        class="pointer-events-auto p-4 rounded-xl shadow-lg border text-sm flex items-start gap-3 transition-all transform duration-300"
+        :class="{
+          'bg-emerald-50 border-emerald-200 text-emerald-800': t.tipo === 'sucesso',
+          'bg-rose-50 border-rose-200 text-rose-800': t.tipo === 'erro',
+          'bg-sky-50 border-sky-200 text-sky-800': t.tipo === 'info'
+        }">
+        <i class="mt-0.5 text-base" :class="{
+          'fa-solid fa-circle-check text-emerald-600': t.tipo === 'sucesso',
+          'fa-solid fa-circle-xmark text-rose-600': t.tipo === 'erro',
+          'fa-solid fa-circle-info text-sky-600': t.tipo === 'info'
+        }"></i>
+        <div class="flex-1 font-medium" x-text="t.mensagem"></div>
+      </div>
+    </template>
+  </div>
+
+  <!-- Cabeçalho -->
+  <header class="bg-sky-950 text-white shadow-md border-b border-sky-800 no-print">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-3">
+      <div class="flex items-center space-x-3">
+        <div class="p-2 bg-sky-900 rounded-lg border border-sky-700 shadow-inner">
+          <i class="fa-solid fa-shield-halved text-2xl text-sky-400"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight">SIS-FISA</h1>
+          <p class="text-xs text-sky-200 uppercase tracking-wider font-medium">Subsecretaria de Fiscalização e Avaliação da Saúde</p>
+        </div>
+      </div>
+
+      <!-- Seletor de Módulos -->
+      <div class="flex items-center bg-sky-900 p-1 rounded-xl border border-sky-700">
+        <button 
+          @click="mudarAba('fiscalizacoes')" 
+          :class="abaAtiva === 'fiscalizacoes' ? 'bg-sky-600 text-white shadow' : 'text-sky-200 hover:text-white'"
+          class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5">
+          <i class="fa-solid fa-clipboard-list"></i> Fiscalizações
+        </button>
+        <button 
+          @click="mudarAba('fluxo')" 
+          :class="abaAtiva === 'fluxo' ? 'bg-sky-600 text-white shadow' : 'text-sky-200 hover:text-white'"
+          class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5">
+          <i class="fa-solid fa-user-gear"></i> Fluxo & Equipe
+        </button>
+        <button 
+          @click="mudarAba('indicadores')" 
+          :class="abaAtiva === 'indicadores' ? 'bg-sky-600 text-white shadow' : 'text-sky-200 hover:text-white'"
+          class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5">
+          <i class="fa-solid fa-chart-pie"></i> Indicadores
+        </button>
+        <button 
+          @click="mudarAba('calendario')" 
+          :class="abaAtiva === 'calendario' ? 'bg-sky-600 text-white shadow' : 'text-sky-200 hover:text-white'"
+          class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5">
+          <i class="fa-solid fa-calendar-days"></i> Calendário
+        </button>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button @click="abrirModalNovaVisita()" class="bg-amber-600 hover:bg-amber-500 text-white px-3 py-2 rounded-lg font-semibold text-xs sm:text-sm flex items-center transition shadow-sm">
+          <i class="fa-solid fa-location-dot mr-1.5"></i> Registrar Visita
+        </button>
+        <button @click="abrirRelatorioMensal()" class="bg-indigo-700 hover:bg-indigo-600 text-white px-3 py-2 rounded-lg font-medium text-xs sm:text-sm flex items-center transition shadow-sm">
+          <i class="fa-solid fa-file-contract mr-1.5"></i> Relatório
+        </button>
+        <button @click="abrirModalNovaUnidade()" class="bg-sky-900 hover:bg-sky-800 border border-sky-700 text-white px-3 py-2 rounded-lg font-medium text-xs sm:text-sm flex items-center transition shadow-sm">
+          <i class="fa-solid fa-hospital mr-1.5"></i> Unidades
+        </button>
+        <button @click="abrirNovoModal()" class="bg-sky-600 hover:bg-sky-500 text-white px-3.5 py-2 rounded-lg font-semibold text-xs sm:text-sm flex items-center transition shadow">
+          <i class="fa-solid fa-plus mr-1.5"></i> Nova Demanda
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-8 no-print">
+    
+    <!-- Banner de Conexão Render -->
+    <div x-show="conectandoRender" x-cloak class="mb-6 p-4 bg-amber-50 border-l-4 border-amber-500 text-amber-900 text-sm rounded-lg flex items-center justify-between shadow-sm">
+      <div class="flex items-center gap-3">
+        <i class="fa-solid fa-satellite-dish fa-bounce text-amber-600 text-lg"></i>
+        <div>
+          <span class="font-bold">Conectando ao banco de dados:</span> O servidor está acordando do repouso...
+        </div>
+      </div>
+      <i class="fa-solid fa-spinner fa-spin text-amber-700"></i>
+    </div>
+
+    <!-- ==================== ABA 1: FISCALIZAÇÕES ==================== -->
+    <div x-show="abaAtiva === 'fiscalizacoes'" x-cloak>
+      
+      <!-- Matriz de Risco / Alerta Prioritário -->
+      <div x-show="alertasPrioritarios.length > 0" class="mb-8 p-4 bg-rose-50 border-l-4 border-rose-600 rounded-xl shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <span class="relative flex h-3 w-3">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-3 w-3 bg-rose-600"></span>
+            </span>
+            <h3 class="font-bold text-sm text-rose-900 uppercase tracking-wide">
+              Matriz de Gravidade e Alerta Imediato (<span x-text="alertasPrioritarios.length"></span>)
+            </h3>
+          </div>
+          <span class="text-[11px] text-rose-700 font-medium bg-rose-100 px-2 py-0.5 rounded">Risco Crítico / MP / Vencimento Iminente</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <template x-for="item in alertasPrioritarios" :key="item.id">
+            <div class="bg-white p-3.5 rounded-lg border border-rose-200 shadow-sm flex flex-col justify-between">
+              <div>
+                <div class="flex justify-between items-start gap-2 mb-1">
+                  <span class="font-bold text-xs text-slate-800" x-text="item.protocolo"></span>
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700" x-text="item.grau_risco"></span>
+                </div>
+                <p class="text-xs text-slate-600 truncate font-medium" x-text="item.unidade_nome || 'Unidade Geral'"></p>
+                <p class="text-[11px] text-slate-500 line-clamp-1 mt-0.5" x-text="item.descricao"></p>
+              </div>
+
+              <div class="flex justify-between items-center mt-3 pt-2 border-t border-slate-100 text-xs">
+                <span class="font-mono text-[11px] text-rose-700 font-semibold" x-text="'Prazo: ' + formatarData(item.prazo_fatal)"></span>
+                <div class="flex gap-2">
+                  <button @click="iniciarEdicao(item)" class="text-xs font-bold text-amber-700 hover:underline">Editar</button>
+                  <button @click="visualizarDemanda(item)" class="text-xs font-bold text-sky-700 hover:underline">Tratar &rarr;</button>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Tabela Principal -->
+      <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-slate-100 flex flex-col gap-4">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+              <h2 class="font-bold text-lg text-slate-800">Mapa Operacional de Fiscalizações</h2>
+              <p class="text-xs text-slate-500">Monitoramento de prazos fatais, inspeções presenciais e conformidade hospitalar/ambulatorial</p>
+            </div>
+            <button @click="exportarParaCSV()" class="bg-emerald-700 hover:bg-emerald-600 text-white px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 shadow-sm transition">
+              <i class="fa-solid fa-file-excel text-sm"></i> Exportar Relatório (CSV)
+            </button>
+          </div>
+
+          <!-- Filtros Rápidos (Tabs) -->
+          <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+            <div class="flex flex-wrap gap-1.5 text-xs font-medium">
+              <button @click="filtroRapido = 'todos'" :class="filtroRapido === 'todos' ? 'bg-sky-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1.5 rounded-lg transition">Todos</button>
+              <button @click="filtroRapido = 'visitas'" :class="filtroRapido === 'visitas' ? 'bg-amber-600 text-white' : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'" class="px-3 py-1.5 rounded-lg transition flex items-center gap-1.5">
+                <i class="fa-solid fa-location-dot"></i> Visitas in loco (<span x-text="todasVisitasInLoco.length"></span>)
+              </button>
+              <button @click="filtroRapido = 'vencidos'" :class="filtroRapido === 'vencidos' ? 'bg-rose-700 text-white' : 'bg-slate-100 text-rose-700 hover:bg-rose-50'" class="px-3 py-1.5 rounded-lg transition flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-rose-500 inline-block"></span> Vencidos / Alerta
+              </button>
+              <button @click="filtroRapido = 'andamento'" :class="filtroRapido === 'andamento' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1.5 rounded-lg transition">Em Andamento</button>
+              <button @click="filtroRapido = 'concluidas'" :class="filtroRapido === 'concluidas' ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1.5 rounded-lg transition">Concluídas</button>
+              <button @click="filtroRapido = 'os'" :class="filtroRapido === 'os' ? 'bg-purple-800 text-white' : 'bg-slate-100 text-purple-700 hover:bg-purple-50'" class="px-3 py-1.5 rounded-lg transition">Só O.S.</button>
+              <button @click="filtroRapido = 'municipio'" :class="filtroRapido === 'municipio' ? 'bg-sky-700 text-white' : 'bg-slate-100 text-sky-700 hover:bg-sky-50'" class="px-3 py-1.5 rounded-lg transition">Só Município</button>
+            </div>
+
+            <div class="w-full sm:w-72 relative">
+              <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+              <input type="text" x-model="busca" placeholder="Pesquisar protocolo, auditor, unidade..." class="w-full pl-8 pr-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-sky-500">
+            </div>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr class="bg-slate-50 text-slate-600 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
+                <th class="p-4">Protocolo / Origem</th>
+                <th class="p-4">Unidade Alvo</th>
+                <th class="p-4">Gestão</th>
+                <th class="p-4">Tipo / Eixo</th>
+                <th class="p-4">Responsável</th>
+                <th class="p-4">Data / Prazo</th>
+                <th class="p-4">Status</th>
+                <th class="p-4 text-center">Ações</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <template x-if="carregando">
+                <tr>
+                  <td colspan="8" class="p-8 text-center text-slate-500">
+                    <i class="fa-solid fa-spinner fa-spin mr-2 text-sky-600"></i> Sincronizando registros...
+                  </td>
+                </tr>
+              </template>
+              <template x-for="d in demandasFiltradas" :key="d.id">
+                <tr class="hover:bg-slate-50 transition">
+                  <td class="p-4">
+                    <div class="font-bold text-slate-800" x-text="d.protocolo"></div>
+                    <span class="text-xs text-slate-500" x-text="d.origem"></span>
+                  </td>
+                  <td class="p-4">
+                    <div class="font-medium text-slate-700" x-text="d.unidade_nome || 'Unidade Geral'"></div>
+                  </td>
+                  <td class="p-4">
+                    <span class="px-2 py-0.5 rounded text-xs font-semibold"
+                      :class="obterEsferaGestao(d) === 'Organização Social (OS)' ? 'bg-purple-100 text-purple-700 border border-purple-200' : 'bg-sky-100 text-sky-700 border border-sky-200'"
+                      x-text="obterEsferaGestao(d)">
+                    </span>
+                  </td>
+                  <td class="p-4">
+                    <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium"
+                      :class="d.tipo_fiscalizacao === 'Visita in loco' ? 'bg-amber-100 text-amber-800 border border-amber-300 font-bold' : 'bg-slate-100 text-slate-700 border border-slate-200'"
+                      x-text="d.tipo_fiscalizacao"></span>
+                  </td>
+                  <td class="p-4">
+                    <span class="font-medium text-xs text-slate-700" x-text="d.responsavel_atribuido || 'Não atribuído'"></span>
+                  </td>
+                  <td class="p-4">
+                    <div class="font-mono text-xs font-semibold" x-text="formatarData(d.prazo_fatal)"></div>
+                    <div class="mt-1" x-html="renderizarBadgePrazo(d.prazo_fatal, d.status)"></div>
+                  </td>
+                  <td class="p-4">
+                    <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
+                      :class="d.status === 'Concluída' ? 'bg-emerald-100 text-emerald-700' : (d.status === 'Em andamento' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700')"
+                      x-text="d.status"></span>
+                  </td>
+                  <td class="p-4 text-center">
+                    <div class="flex items-center justify-center gap-1.5 flex-wrap">
+                      <button @click="visualizarDemanda(d)" class="text-slate-700 hover:text-sky-700 text-xs font-semibold px-2 py-1 border border-slate-300 rounded hover:bg-slate-100 transition" title="Detalhes e Despachos">
+                        <i class="fa-regular fa-eye"></i>
+                      </button>
+                      <button @click="iniciarEdicao(d)" class="text-amber-700 hover:text-amber-900 text-xs font-semibold px-2 py-1 border border-amber-300 rounded hover:bg-amber-50 transition" title="Editar Demanda">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                      </button>
+                      <button @click="avancarStatus(d)" class="text-sky-600 hover:text-sky-800 text-xs font-semibold px-2 py-1 border border-sky-300 rounded hover:bg-sky-50 transition" title="Mudar Status">
+                        Mudar
+                      </button>
+                      <button @click="excluirDemanda(d.id, d.protocolo)" class="text-xs bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white border border-rose-200 px-2 py-1 rounded transition" title="Excluir">
+                        <i class="fa-regular fa-trash-can"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- ==================== ABA 2: FLUXO DE TRABALHO INTERNO & AUDITORES ==================== -->
+    <div x-show="abaAtiva === 'fluxo'" x-cloak class="space-y-6">
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+        <div>
+          <h2 class="font-bold text-lg text-slate-800 flex items-center gap-2">
+            <i class="fa-solid fa-network-wired text-sky-700"></i> Fluxo de Trabalho & Distribuição de Carga
+          </h2>
+          <p class="text-xs text-slate-500">Acompanhamento de processos distribuídos por auditor e redistribuição operacional da Subsecretaria</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <template x-for="(dados, auditor) in fluxoPorAuditor" :key="auditor">
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between pb-3 border-b mb-3">
+                <div class="flex items-center gap-2.5">
+                  <span class="w-8 h-8 rounded-full bg-sky-100 text-sky-800 flex items-center justify-center font-bold text-xs">
+                    <i class="fa-solid fa-user-tie"></i>
+                  </span>
+                  <div>
+                    <h3 class="font-bold text-sm text-slate-800" x-text="auditor"></h3>
+                    <span class="text-[11px] text-slate-400">Responsável Técnico</span>
+                  </div>
+                </div>
+                <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200" x-text="dados.total + ' proc.'"></span>
+              </div>
+
+              <div class="grid grid-cols-3 gap-2 text-center text-xs mb-3">
+                <div class="p-2 bg-slate-50 rounded border">
+                  <span class="text-[10px] text-slate-500 block">Ativos</span>
+                  <strong class="text-amber-700" x-text="dados.emAndamento"></strong>
+                </div>
+                <div class="p-2 bg-slate-50 rounded border">
+                  <span class="text-[10px] text-slate-500 block">Críticos</span>
+                  <strong class="text-rose-700" x-text="dados.criticos"></strong>
+                </div>
+                <div class="p-2 bg-slate-50 rounded border">
+                  <span class="text-[10px] text-slate-500 block">Concluídos</span>
+                  <strong class="text-emerald-700" x-text="dados.concluidos"></strong>
+                </div>
+              </div>
+
+              <div class="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                <template x-for="p in dados.processos.filter(x => x.status !== 'Concluída').slice(0, 4)" :key="p.id">
+                  <div class="p-1.5 bg-slate-50 border rounded text-[11px] flex justify-between items-center hover:bg-slate-100 cursor-pointer" @click="iniciarEdicao(p)">
+                    <span class="font-bold text-slate-700 truncate max-w-[170px]" x-text="p.protocolo"></span>
+                    <span class="text-[10px] text-slate-400" x-text="formatarData(p.prazo_fatal)"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <div class="pt-3 border-t mt-3 flex justify-between items-center text-xs">
+              <span class="text-[11px] text-slate-500">Redistribuir carga:</span>
+              <button @click="filtrarPorAuditor(auditor)" class="text-sky-700 hover:text-sky-900 font-bold">Ver Todos &rarr;</button>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- ==================== ABA 3: INDICADORES (CHART.JS) ==================== -->
+    <div x-show="abaAtiva === 'indicadores'" x-cloak class="space-y-6">
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+        <div>
+          <h2 class="font-bold text-lg text-slate-800 flex items-center gap-2">
+            <i class="fa-solid fa-chart-line text-sky-600"></i> Painel Gerencial & Inteligência em Saúde
+          </h2>
+          <p class="text-xs text-slate-500">Métricas consolidadas de conformidade, volume por gestão e concentração de riscos</p>
+        </div>
+        <button @click="atualizarGraficos()" class="px-3 py-1.5 border border-slate-300 hover:bg-slate-50 rounded-lg text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+          <i class="fa-solid fa-arrows-rotate"></i> Recarregar Dados
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div>
+            <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider mb-1">Fiscalizações por Esfera</h3>
+            <p class="text-[11px] text-slate-400 mb-4">Administração Direta vs Organização Social</p>
+          </div>
+          <div class="h-60 relative flex items-center justify-center">
+            <canvas id="chartGestao"></canvas>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div>
+            <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider mb-1">Eixo Temático Fiscalizado</h3>
+            <p class="text-[11px] text-slate-400 mb-4">Distribuição assistencial, farmacêutica e contábil</p>
+          </div>
+          <div class="h-60 relative flex items-center justify-center">
+            <canvas id="chartEixos"></canvas>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div>
+            <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider mb-1">Classificação de Risco</h3>
+            <p class="text-[11px] text-slate-400 mb-4">Gravidade e criticidade do estoque de demandas</p>
+          </div>
+          <div class="h-60 relative flex items-center justify-center">
+            <canvas id="chartRisco"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== ABA 4: CALENDÁRIO & REUNIÕES ==================== -->
+    <div x-show="abaAtiva === 'calendario'" x-cloak class="space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <div class="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+          <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
+            <div class="flex items-center gap-3">
+              <span class="p-2 bg-emerald-100 text-emerald-800 rounded-lg"><i class="fa-solid fa-calendar-day text-lg"></i></span>
+              <h2 class="font-bold text-base text-slate-800 capitalize" x-text="nomeMesAtual"></h2>
+            </div>
+            <div class="flex items-center gap-1">
+              <button @click="mudarMes(-1)" class="p-2 border rounded-lg hover:bg-slate-100 text-slate-600 text-xs"><i class="fa-solid fa-chevron-left"></i></button>
+              <button @click="irParaMesAtual()" class="px-3 py-1.5 border rounded-lg hover:bg-slate-100 text-slate-700 text-xs font-semibold">Hoje</button>
+              <button @click="mudarMes(1)" class="p-2 border rounded-lg hover:bg-slate-100 text-slate-600 text-xs"><i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-7 gap-1 text-center font-bold text-xs text-slate-500 mb-2">
+            <div>Dom</div><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div>
+          </div>
+
+          <div class="grid grid-cols-7 gap-1">
+            <template x-for="(diaObj, idx) in diasCalendario" :key="idx">
+              <div 
+                @click="selecionarDiaCalendario(diaObj.dataIso)"
+                class="min-h-[78px] p-1.5 border rounded-lg flex flex-col justify-between transition cursor-pointer"
+                :class="{
+                  'bg-slate-50 opacity-40': !diaObj.mesmoMes,
+                  'border-emerald-500 bg-emerald-50/40': diaObj.dataIso === diaSelecionadoIso,
+                  'border-sky-300 ring-2 ring-sky-200': diaObj.ehHoje,
+                  'hover:border-slate-400 bg-white': diaObj.mesmoMes && diaObj.dataIso !== diaSelecionadoIso
+                }">
+                <div class="flex justify-between items-center">
+                  <span class="text-xs font-bold" :class="diaObj.ehHoje ? 'text-sky-700 underline' : 'text-slate-700'" x-text="diaObj.numeroDia"></span>
+                  <span x-show="obterReunioesDoDia(diaObj.dataIso).length > 0" class="text-[10px] font-bold px-1.5 py-0.2 bg-emerald-600 text-white rounded-full" x-text="obterReunioesDoDia(diaObj.dataIso).length"></span>
+                </div>
+
+                <div class="space-y-0.5 mt-1 overflow-hidden">
+                  <template x-for="r in obterReunioesDoDia(diaObj.dataIso).slice(0, 2)" :key="r.id">
+                    <div class="text-[10px] truncate px-1 py-0.5 rounded bg-emerald-100 text-emerald-800 font-medium" :title="r.protocolo" x-text="r.protocolo"></div>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-center mb-3 pb-2 border-b">
+              <span class="text-xs font-bold text-slate-700 uppercase">
+                <i class="fa-solid fa-clock mr-1 text-emerald-600"></i>
+                <span x-text="diaSelecionadoIso ? 'Compromissos em ' + formatarData(diaSelecionadoIso) : 'Próximas Reuniões'"></span>
+              </span>
+              <button @click="abrirModalReuniao(diaSelecionadoIso)" class="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1">
+                <i class="fa-solid fa-plus-circle"></i> Agendar
+              </button>
+            </div>
+
+            <div class="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+              <template x-for="r in reunioesFiltradasLateral" :key="r.id">
+                <div class="p-3 bg-slate-50 hover:bg-emerald-50/50 border rounded-xl transition space-y-1.5">
+                  <div class="flex justify-between items-start">
+                    <h4 class="font-bold text-xs text-slate-800 leading-snug" x-text="r.protocolo"></h4>
+                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800" x-text="formatarData(r.prazo_fatal)"></span>
+                  </div>
+                  <p class="text-xs text-slate-600 line-clamp-2" x-text="r.descricao || 'Pauta não informada.'"></p>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <div class="pt-4 border-t mt-4">
+            <button @click="abrirModalReuniao(diaSelecionadoIso)" class="w-full py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm">
+              <i class="fa-solid fa-calendar-plus"></i> Marcar Nova Reunião
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- MODAL: REGISTRAR VISITA IN LOCO -->
+    <div x-show="abrirModalVisita" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
+      <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto" @click.away="abrirModalVisita = false">
+        
+        <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
+          <span class="p-1.5 bg-amber-100 text-amber-800 rounded-lg text-sm">
+            <i class="fa-solid fa-location-dot"></i>
+          </span>
+          Registrar Visita / Fiscalização in loco
+        </h3>
+
+        <form @submit.prevent="salvarVisitaInLoco" class="space-y-4">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Identificação / Protocolo *</label>
+              <input type="text" x-model="formVisita.protocolo" required class="w-full border rounded px-3 py-1.5 text-sm" placeholder="Ex: VISTORIA-2026/01">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Data da Inspeção *</label>
+              <input type="date" x-model="formVisita.prazo_fatal" required class="w-full border rounded px-3 py-1.5 text-sm bg-white">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Unidade Inspecionada *</label>
+              <select x-model="formVisita.unidade_id" required class="w-full border rounded px-3 py-1.5 text-sm bg-white font-medium">
+                <option value="">Selecione a unidade de saúde...</option>
+                <template x-for="u in unidades" :key="u.id">
+                  <option :value="u.id" x-text="u.nome_fantasia"></option>
+                </template>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Esfera de Gestão *</label>
+              <select x-model="formVisita.esfera_gestao" class="w-full border rounded px-3 py-1.5 text-sm bg-white font-medium">
+                <option value="Administração Municipal (Direta)">Administração Municipal (Direta)</option>
+                <option value="Organização Social (OS)">Organização Social (OS)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Auditor / Equipe Responsável *</label>
+              <input type="text" x-model="formVisita.responsavel_atribuido" required placeholder="Ex: Auditor Rafael Reis" class="w-full border rounded px-3 py-1.5 text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Gravidade / Risco Apurado</label>
+              <select x-model="formVisita.grau_risco" class="w-full border rounded px-3 py-1.5 text-sm">
+                <option>Médio</option>
+                <option>Alto</option>
+                <option>Crítico</option>
+                <option>Baixo</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Relatório da Visita & Achados in loco *</label>
+            <textarea x-model="formVisita.descricao" required rows="4" class="w-full border rounded px-3 py-1.5 text-sm" placeholder="Descreva os achados da fiscalização em campo: cumprimento de escala, presença de médicos/enfermagem, farmácia, etc."></textarea>
+          </div>
+
+          <div class="flex justify-end gap-2 pt-4 border-t">
+            <button type="button" @click="abrirModalVisita = false" class="px-4 py-2 border rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
+            <button type="submit" :disabled="salvando" class="px-4 py-2 bg-amber-700 text-white rounded-lg text-xs font-bold hover:bg-amber-600 flex items-center shadow">
+              <span x-show="!salvando"><i class="fa-solid fa-check mr-1.5"></i> Salvar Visita in loco</span>
+              <span x-show="salvando"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL DE CADASTRO OU EDIÇÃO DE DEMANDA GERAL -->
+    <div x-show="abrirModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
+      <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto" @click.away="abrirModal = false">
+        
+        <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
+          <span class="p-1.5 bg-sky-100 text-sky-800 rounded-lg text-sm">
+            <i class="fa-solid" :class="editandoId ? 'fa-pen-to-square' : 'fa-plus'"></i>
+          </span>
+          <span x-text="editandoId ? 'Editar Demanda & Responsável' : 'Cadastrar Demanda de Fiscalização'"></span>
+        </h3>
+
+        <form @submit.prevent="salvarDemanda" class="space-y-4">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Nº Protocolo / Ofício *</label>
+              <input type="text" x-model="formDemanda.protocolo" required class="w-full border rounded px-3 py-1.5 text-sm" placeholder="Ex: OF-2026/01">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Origem do Pedido</label>
+              <select x-model="formDemanda.origem" class="w-full border rounded px-3 py-1.5 text-sm">
+                <option>Ministério Público</option>
+                <option>Tribunal de Contas</option>
+                <option>Ouvidoria do SUS</option>
+                <option>Denúncia Cidadã</option>
+                <option>Rotina da Subsecretaria</option>
+                <option>Secretaria de Saúde</option>
+                <option>Comissão de Fiscalização</option>
+                <option>Farmácia Judicial</option>
+                <option>Organização Social</option>
+                <option>Manutenção Predial</option>
+                <option>Outros</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Unidade de Saúde Alvo</label>
+              <select x-model="formDemanda.unidade_id" class="w-full border rounded px-3 py-1.5 text-sm bg-white">
+                <option value="">Geral / Subsecretaria / Sem unidade vinculada</option>
+                <template x-for="u in unidades" :key="u.id">
+                  <option :value="u.id" x-text="u.nome_fantasia"></option>
+                </template>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Esfera de Gestão *</label>
+              <select x-model="formDemanda.esfera_gestao" class="w-full border rounded px-3 py-1.5 text-sm bg-white font-medium">
+                <option value="Administração Municipal (Direta)">Administração Municipal (Direta)</option>
+                <option value="Organização Social (OS)">Organização Social (OS)</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Descrição / Objeto da Fiscalização</label>
+            <textarea x-model="formDemanda.descricao" required rows="2" class="w-full border rounded px-3 py-1.5 text-sm" placeholder="Ex: Averiguação de cumprimento de escala e insumos em estoque"></textarea>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Tipo de Fiscalização (Eixo)</label>
+              <select x-model="formDemanda.tipo_fiscalizacao" class="w-full border rounded px-3 py-1.5 text-sm">
+                <option>Assistencial</option>
+                <option>Financeira/Contábil</option>
+                <option>Sanitária</option>
+                <option>Farmacêutica</option>
+                <option>Jurídica</option>
+                <option>Visita in loco</option>
+                <option>Outros</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Grau de Risco</label>
+              <select x-model="formDemanda.grau_risco" class="w-full border rounded px-3 py-1.5 text-sm">
+                <option>Crítico</option>
+                <option>Alto</option>
+                <option>Médio</option>
+                <option>Baixo</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 bg-slate-50 p-2.5 rounded-lg border">
+            <div>
+              <label class="block text-xs font-bold text-sky-950 mb-1">Auditor / Responsável *</label>
+              <input type="text" x-model="formDemanda.responsavel_atribuido" required placeholder="Ex: Auditor Rafael Reis" class="w-full border rounded px-3 py-1.5 text-sm bg-white font-medium">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-sky-950 mb-1">Prazo Limite / Fatal *</label>
+              <input type="date" x-model="formDemanda.prazo_fatal" required class="w-full border rounded px-3 py-1.5 text-sm bg-white">
+            </div>
+          </div>
+
+          <div class="flex justify-end gap-2 pt-4 border-t">
+            <button type="button" @click="abrirModal = false" class="px-4 py-2 border rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
+            <button type="submit" :disabled="salvando" class="px-4 py-2 bg-sky-700 text-white rounded-lg text-xs font-bold hover:bg-sky-600 flex items-center shadow">
+              <span x-show="!salvando" x-text="editandoId ? 'Atualizar Dados' : 'Gravar Demanda'"></span>
+              <span x-show="salvando"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL DE DETALHES E DESPACHOS -->
+    <div x-show="modalVisualizar" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak @keydown.escape.window="modalVisualizar = false">
+      <div class="bg-white rounded-xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]" @click.away="modalVisualizar = false">
+        
+        <div class="overflow-y-auto space-y-4 text-sm pr-1 flex-1">
+          <div class="flex justify-between items-center border-b pb-3 mb-2">
+            <div class="flex items-center gap-3">
+              <span class="p-2.5 bg-sky-900 text-white rounded-lg shadow-sm"><i class="fa-solid fa-file-shield text-xl"></i></span>
+              <div>
+                <span class="text-xs text-slate-500 uppercase tracking-wider font-semibold">Subsecretaria de Fiscalização da Saúde</span>
+                <h3 class="text-lg font-bold text-slate-800" x-text="demandaVisualizada?.protocolo"></h3>
+              </div>
+            </div>
+            <button @click="modalVisualizar = false" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition no-print">
+              <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3" x-if="demandaVisualizada">
+            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Origem / Solicitante</span>
+              <span class="font-semibold text-slate-800" x-text="demandaVisualizada.origem || 'Não informada'"></span>
+            </div>
+            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Unidade Alvo</span>
+              <span class="font-semibold text-slate-800" x-text="demandaVisualizada.unidade_nome || 'Unidade Geral'"></span>
+            </div>
+            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Esfera de Gestão</span>
+              <span class="font-bold text-xs" 
+                :class="obterEsferaGestao(demandaVisualizada) === 'Organização Social (OS)' ? 'text-purple-700' : 'text-sky-700'"
+                x-text="obterEsferaGestao(demandaVisualizada)">
+              </span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3" x-if="demandaVisualizada">
+            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Tipo / Eixo</span>
+              <span class="font-semibold text-slate-800" x-text="demandaVisualizada.tipo_fiscalizacao"></span>
+            </div>
+            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Grau de Risco</span>
+              <span class="font-bold" 
+                :class="{
+                  'text-rose-600': demandaVisualizada.grau_risco === 'Crítico',
+                  'text-amber-600': demandaVisualizada.grau_risco === 'Alto',
+                  'text-blue-600': demandaVisualizada.grau_risco === 'Médio',
+                  'text-slate-600': demandaVisualizada.grau_risco === 'Baixo'
+                }"
+                x-text="demandaVisualizada.grau_risco"></span>
+            </div>
+            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Status</span>
+              <span class="inline-block px-2 py-0.5 rounded text-xs font-bold"
+                :class="demandaVisualizada.status === 'Concluída' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'"
+                x-text="demandaVisualizada.status"></span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" x-if="demandaVisualizada">
+            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Data Agendada / Prazo</span>
+              <span class="font-semibold font-mono text-xs" x-text="formatarData(demandaVisualizada.prazo_fatal)"></span>
+            </div>
+            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Responsável / Auditor</span>
+              <span class="font-semibold text-slate-800" x-text="demandaVisualizada.responsavel_atribuido || 'Não atribuído'"></span>
+            </div>
+          </div>
+
+          <div class="bg-slate-50 p-3.5 rounded-lg border border-slate-200" x-if="demandaVisualizada">
+            <span class="text-xs text-slate-600 block mb-1 font-bold uppercase tracking-wider">Histórico do Processo & Despachos</span>
+            <div class="text-slate-800 bg-white p-3.5 rounded-lg border border-slate-200 text-xs sm:text-sm whitespace-pre-wrap leading-relaxed min-h-[90px] font-sans" x-text="demandaVisualizada.descricao || 'Sem descrição cadastrada.'"></div>
+          </div>
+
+          <div class="bg-sky-50 border border-sky-200 p-3.5 rounded-lg no-print">
+            <span class="text-xs font-bold text-sky-900 block mb-1.5"><i class="fa-solid fa-pen-to-square mr-1"></i> Inserir Despacho / Andamento</span>
+            <div class="flex flex-col gap-2">
+              <textarea x-model="novoDespachoTexto" rows="2" placeholder="Ex: Diligência in loco realizada..." class="w-full text-xs p-2.5 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"></textarea>
+              <div class="flex justify-between items-center">
+                <input type="text" x-model="novoDespachoAutor" placeholder="Autor do registro" class="text-xs border px-2.5 py-1.5 rounded-lg bg-white w-48 focus:outline-none focus:ring-2 focus:ring-sky-500">
+                <button @click="salvarDespacho()" :disabled="salvandoDespacho" class="bg-sky-800 hover:bg-sky-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center transition shadow-sm">
+                  <span x-show="!salvandoDespacho"><i class="fa-solid fa-paper-plane mr-1"></i> Gravar Despacho</span>
+                  <span x-show="salvandoDespacho"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Gravando...</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="border-t pt-4 mt-3 flex justify-between items-center no-print">
+          <div class="flex gap-2">
+            <button type="button" @click="iniciarEdicao(demandaVisualizada); modalVisualizar = false;" class="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5">
+              <i class="fa-solid fa-pen-to-square"></i> Editar Demanda
+            </button>
+            <button type="button" @click="imprimirFicha()" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1.5 border border-slate-300">
+              <i class="fa-solid fa-print"></i> Imprimir Ficha
+            </button>
+          </div>
+          <button type="button" @click="modalVisualizar = false" class="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold transition">
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: AGENDAR REUNIÃO -->
+    <div x-show="abrirModalNovaReuniao" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
+      <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-slate-200" @click.away="abrirModalNovaReuniao = false">
+        <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
+          <span class="p-1.5 bg-emerald-100 text-emerald-800 rounded-lg text-sm"><i class="fa-solid fa-calendar-plus"></i></span>
+          Agendar Reunião / Alinhamento
+        </h3>
+
+        <form @submit.prevent="salvarReuniao" class="space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Título / Pauta da Reunião *</label>
+            <input type="text" x-model="formReuniao.protocolo" required placeholder="Ex: Alinhamento com Direção da UPA sobre escalas" class="w-full border rounded px-3 py-1.5 text-sm">
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Data da Reunião *</label>
+              <input type="date" x-model="formReuniao.prazo_fatal" required class="w-full border rounded px-3 py-1.5 text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Esfera Envolvida</label>
+              <select x-model="formReuniao.esfera_gestao" class="w-full border rounded px-3 py-1.5 text-sm bg-white font-medium">
+                <option value="Administração Municipal (Direta)">Administração Municipal (Direta)</option>
+                <option value="Organização Social (OS)">Organização Social (OS)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Unidade Vinculada</label>
+              <select x-model="formReuniao.unidade_id" class="w-full border rounded px-3 py-1.5 text-sm bg-white">
+                <option value="">Geral / Sede da Subsecretaria</option>
+                <template x-for="u in unidades" :key="u.id">
+                  <option :value="u.id" x-text="u.nome_fantasia"></option>
+                </template>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Responsável / Condutor</label>
+              <input type="text" x-model="formReuniao.responsavel_atribuido" placeholder="Ex: Rafael Reis" class="w-full border rounded px-3 py-1.5 text-sm">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Pauta Detalhada / Participantes</label>
+            <textarea x-model="formReuniao.descricao" rows="3" placeholder="Ex: Pauta: Contratos de gestão e metas..." class="w-full border rounded px-3 py-1.5 text-sm"></textarea>
+          </div>
+
+          <div class="flex justify-end gap-2 pt-4 border-t">
+            <button type="button" @click="abrirModalNovaReuniao = false" class="px-4 py-2 border rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
+            <button type="submit" :disabled="salvando" class="px-4 py-2 bg-emerald-700 text-white rounded-lg text-xs font-bold hover:bg-emerald-600 flex items-center shadow">
+              <span x-show="!salvando">Confirmar Agendamento</span>
+              <span x-show="salvando"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Agendando...</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL: GERENCIAR UNIDADES -->
+    <div x-show="abrirModalUnidade" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
+      <div class="bg-white rounded-xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 max-h-[90vh] flex flex-col" @click.away="abrirModalUnidade = false">
+        
+        <div class="flex justify-between items-center border-b pb-3 mb-4">
+          <div class="flex items-center gap-2">
+            <span class="p-2 bg-sky-100 text-sky-800 rounded-lg"><i class="fa-solid fa-hospital"></i></span>
+            <h3 class="text-base font-bold text-slate-800">Gerenciar Unidades de Saúde</h3>
+          </div>
+          <button @click="abrirModalUnidade = false" class="text-slate-400 hover:text-slate-600">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <div class="overflow-y-space-y-6 flex-1 pr-1 overflow-y-auto">
+          <form @submit.prevent="salvarUnidade" class="space-y-3 bg-slate-50 p-3.5 rounded-lg border border-slate-200">
+            <span class="text-xs font-bold text-sky-900 uppercase block mb-1">Cadastrar Nova Unidade</span>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Nome Fantasia da Unidade *</label>
+              <input type="text" x-model="formUnidade.nome_fantasia" required placeholder="Ex: Hospital Municipal Nossa Senhora de Nazareth" class="w-full border rounded px-3 py-1.5 text-sm bg-white">
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Tipo de Unidade</label>
+              <select x-model="formUnidade.tipo_unidade" class="w-full border rounded px-3 py-1.5 text-sm bg-white">
+                <option>Atenção Básica (ESF/UBS)</option>
+                <option>Urgência/Emergência (UPA/PA)</option>
+                <option>Hospitalar</option>
+                <option>Especializada (Policlínica/CEO)</option>
+                <option>Administrativa/Almoxarifado</option>
+              </select>
+            </div>
+
+            <div class="flex justify-end pt-2">
+              <button type="submit" :disabled="salvandoUnidade" class="px-4 py-1.5 bg-sky-800 text-white rounded-lg text-xs font-semibold hover:bg-sky-700 flex items-center shadow-sm">
+                <span x-show="!salvandoUnidade"><i class="fa-solid fa-plus mr-1"></i> Cadastrar Unidade</span>
+                <span x-show="salvandoUnidade"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Salvando...</span>
+              </button>
+            </div>
+          </form>
+
+          <div class="mt-4">
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-xs font-bold text-slate-700 uppercase">Unidades Cadastradas (<span x-text="unidades.length"></span>)</span>
+            </div>
+            
+            <div class="divide-y border rounded-lg overflow-hidden bg-white max-h-60 overflow-y-auto">
+              <template x-for="u in unidades" :key="u.id">
+                <div class="p-3 flex items-center justify-between hover:bg-slate-50 transition text-sm">
+                  <div>
+                    <p class="font-bold text-slate-800 text-xs sm:text-sm" x-text="u.nome_fantasia"></p>
+                    <div class="flex items-center gap-2 mt-0.5">
+                      <span class="text-xs text-slate-400" x-text="u.tipo_unidade"></span>
+                      <span class="text-[10px] px-2 py-0.2 rounded-full font-bold bg-amber-100 text-amber-800 border border-amber-200" x-text="contarVisitasPorUnidade(u.id) + ' visita(s)'"></span>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <button 
+                      type="button"
+                      @click="abrirDossieUnidade(u)"
+                      class="px-2.5 py-1 text-sky-700 hover:text-white hover:bg-sky-700 border border-sky-300 rounded-md transition text-xs flex items-center gap-1 font-semibold"
+                      title="Ver Ficha Histórica / Dossiê Completo">
+                      <i class="fa-solid fa-file-medical"></i> Raio-X
+                    </button>
+                    <button 
+                      type="button"
+                      @click="excluirUnidade(u.id, u.nome_fantasia)"
+                      class="p-1 text-rose-600 hover:text-white hover:bg-rose-600 border border-rose-200 rounded-md transition text-xs flex items-center"
+                      title="Excluir Unidade">
+                      <i class="fa-regular fa-trash-can"></i>
+                    </button>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <div class="border-t pt-3 mt-4 flex justify-end">
+          <button type="button" @click="abrirModalUnidade = false" class="px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white rounded-lg text-xs font-medium transition">
+            Fechar
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- MODAL DO DOSSIÊ DA UNIDADE (RAIO-X EM TELA) -->
+    <div x-show="modalDossieUnidade" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
+      <div class="bg-white rounded-xl max-w-4xl w-full p-6 shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[94vh]" @click.away="modalDossieUnidade = false">
+        
+        <div class="overflow-y-auto space-y-6 text-sm pr-2 flex-1" x-if="unidadeDossie">
+          <div class="border-b-2 border-slate-800 pb-3 flex justify-between items-start">
+            <div>
+              <span class="text-[11px] text-sky-800 font-bold uppercase tracking-wider block">Dossiê Técnico de Fiscalização e Auditoria</span>
+              <h2 class="text-xl font-bold text-slate-900" x-text="unidadeDossie.nome_fantasia"></h2>
+              <div class="flex items-center gap-3 text-xs text-slate-500 mt-1">
+                <span><i class="fa-solid fa-tag mr-1"></i> Tipo: <strong class="text-slate-700" x-text="unidadeDossie.tipo_unidade"></strong></span>
+                <span x-show="unidadeDossie.cnes && !unidadeDossie.cnes.startsWith('AUTO-')"><i class="fa-solid fa-id-card mr-1"></i> CNES: <strong class="text-slate-700" x-text="unidadeDossie.cnes"></strong></span>
+              </div>
+            </div>
+            <button @click="modalDossieUnidade = false" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition no-print">
+              <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+          </div>
+
+          <div class="grid grid-cols-4 gap-3 text-center">
+            <div class="p-3 bg-slate-50 border rounded-lg">
+              <span class="text-[10px] text-slate-500 uppercase font-semibold block">Total Notificações</span>
+              <span class="text-xl font-bold text-slate-800" x-text="demandasDaUnidadeDossie.length"></span>
+            </div>
+            <div class="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <span class="text-[10px] text-amber-800 uppercase font-bold block"><i class="fa-solid fa-location-dot mr-1"></i> Visitas in loco</span>
+              <span class="text-xl font-bold text-amber-900" x-text="visitasInLocoDaUnidadeDossie.length"></span>
+            </div>
+            <div class="p-3 bg-slate-50 border rounded-lg">
+              <span class="text-[10px] text-slate-500 uppercase font-semibold block">Críticas / Alto Risco</span>
+              <span class="text-xl font-bold text-rose-700" x-text="demandasDaUnidadeDossie.filter(d => d.grau_risco === 'Crítico' || d.grau_risco === 'Alto').length"></span>
+            </div>
+            <div class="p-3 bg-slate-50 border rounded-lg">
+              <span class="text-[10px] text-slate-500 uppercase font-semibold block">Reuniões Realizadas</span>
+              <span class="text-xl font-bold text-emerald-700" x-text="reunioesDaUnidadeDossie.length"></span>
+            </div>
+          </div>
+
+          <!-- Seção de Visitas in loco nesta unidade -->
+          <div class="bg-amber-50/60 border border-amber-200 p-4 rounded-xl">
+            <div class="flex justify-between items-center mb-2.5 pb-2 border-b border-amber-200/80">
+              <h4 class="text-xs font-bold text-amber-950 uppercase tracking-wide flex items-center gap-1.5">
+                <i class="fa-solid fa-person-walking-dashed-line-arrow-right text-amber-700 text-sm"></i>
+                Histórico de Fiscalizações em Campo (Visitas in loco) nesta Unidade (<span x-text="visitasInLocoDaUnidadeDossie.length"></span>)
+              </h4>
+              <button @click="modalDossieUnidade = false; abrirModalNovaVisita(unidadeDossie.id)" class="text-[11px] font-bold text-amber-900 hover:text-amber-700 bg-white border border-amber-300 px-2.5 py-1 rounded-md shadow-sm no-print">
+                + Nova Visita nesta Unidade
+              </button>
+            </div>
+
+            <div class="space-y-2 max-h-48 overflow-y-auto pr-1">
+              <template x-for="v in visitasInLocoDaUnidadeDossie" :key="v.id">
+                <div class="p-3 bg-white border border-amber-200 rounded-lg shadow-sm text-xs space-y-1">
+                  <div class="flex justify-between items-center">
+                    <span class="font-bold text-slate-900" x-text="v.protocolo"></span>
+                    <span class="font-mono text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded" x-text="formatarData(v.prazo_fatal)"></span>
+                  </div>
+                  <p class="text-slate-700 leading-relaxed font-sans" x-text="v.descricao"></p>
+                  <div class="text-[11px] text-slate-400 pt-1 flex justify-between border-t border-slate-100">
+                    <span>Fiscal/Auditor: <strong class="text-slate-600" x-text="v.responsavel_atribuido || 'Equipe FISA'"></strong></span>
+                    <span x-text="'Risco apurado: ' + v.grau_risco"></span>
+                  </div>
+                </div>
+              </template>
+              <template x-if="visitasInLocoDaUnidadeDossie.length === 0">
+                <div class="p-4 text-center text-slate-500 italic text-xs bg-white rounded-lg border border-dashed border-amber-200">
+                  Nenhuma fiscalização in loco registrada para esta unidade até o momento.
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Processos e Demandas Gerais -->
+          <div>
+            <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 border-b pb-1">
+              Processos, Notificações e Expedientes Gerais (<span x-text="demandasDaUnidadeDossie.filter(d => d.tipo_fiscalizacao !== 'Visita in loco').length"></span>)
+            </h4>
+            <div class="divide-y border rounded-lg overflow-hidden text-xs max-h-48 overflow-y-auto">
+              <template x-for="d in demandasDaUnidadeDossie.filter(d => d.tipo_fiscalizacao !== 'Visita in loco')" :key="d.id">
+                <div class="p-3 bg-white hover:bg-slate-50 transition flex justify-between items-start gap-3">
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <span class="font-bold text-slate-800" x-text="d.protocolo"></span>
+                      <span class="px-1.5 py-0.2 rounded text-[10px] font-semibold"
+                        :class="d.grau_risco === 'Crítico' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'"
+                        x-text="d.grau_risco"></span>
+                      <span class="text-[10px] text-slate-400" x-text="'&bull; ' + d.origem"></span>
+                    </div>
+                    <p class="text-slate-600 mt-1 line-clamp-1" x-text="d.descricao"></p>
+                  </div>
+                  <div class="text-right whitespace-nowrap">
+                    <span class="text-[11px] font-semibold" :class="d.status === 'Concluída' ? 'text-emerald-700' : 'text-amber-700'" x-text="d.status"></span>
+                    <span class="text-[10px] text-slate-400 block" x-text="formatarData(d.prazo_fatal)"></span>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <div class="border-t pt-4 mt-3 flex justify-between items-center no-print">
+          <button type="button" @click="imprimirDossie()" class="px-4 py-2 bg-sky-900 hover:bg-sky-800 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
+            <i class="fa-solid fa-print"></i> Imprimir Dossiê da Unidade
+          </button>
+          <button type="button" @click="modalDossieUnidade = false" class="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold transition">
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: RELATÓRIO MENSAL EM TELA -->
+    <div x-show="modalRelatorioMensal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
+      <div class="bg-white rounded-xl max-w-4xl w-full p-8 shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[94vh]" @click.away="modalRelatorioMensal = false">
+        <div class="overflow-y-auto space-y-6 text-sm pr-2 flex-1">
+          <div class="border-b-2 border-slate-800 pb-4 text-center space-y-1">
+            <h2 class="text-lg font-bold tracking-tight text-slate-900 uppercase">Prefeitura Municipal &bull; Secretaria de Saúde</h2>
+            <h3 class="text-sm font-semibold text-sky-900">Subsecretaria de Fiscalização e Avaliação da Saúde</h3>
+            <p class="text-xs text-slate-500 font-mono" x-text="'Relatório Mensal Executivo de Auditoria &bull; ' + dataRelatorioExtenso"></p>
+          </div>
+
+          <div class="grid grid-cols-4 gap-3 text-center">
+            <div class="p-3 bg-slate-50 border rounded-lg">
+              <span class="text-[11px] text-slate-500 uppercase font-semibold block">Total</span>
+              <span class="text-xl font-bold text-slate-800" x-text="demandasApenasFiscalizacao.length"></span>
+            </div>
+            <div class="p-3 bg-slate-50 border rounded-lg">
+              <span class="text-[11px] text-slate-500 uppercase font-semibold block">Concluídas</span>
+              <span class="text-xl font-bold text-emerald-700" x-text="demandasApenasFiscalizacao.filter(d => d.status === 'Concluída').length"></span>
+            </div>
+            <div class="p-3 bg-slate-50 border rounded-lg">
+              <span class="text-[11px] text-slate-500 uppercase font-semibold block">Em Andamento</span>
+              <span class="text-xl font-bold text-amber-700" x-text="demandasApenasFiscalizacao.filter(d => d.status !== 'Concluída').length"></span>
+            </div>
+            <div class="p-3 bg-slate-50 border rounded-lg">
+              <span class="text-[11px] text-slate-500 uppercase font-semibold block">Críticas</span>
+              <span class="text-xl font-bold text-rose-700" x-text="demandasApenasFiscalizacao.filter(d => d.grau_risco === 'Crítico' || d.grau_risco === 'Alto').length"></span>
+            </div>
+          </div>
+
+          <div class="pt-10 text-center text-xs">
+            <div class="border-t border-slate-500 w-1/2 mx-auto pt-1 font-bold text-slate-900">
+              Subsecretaria de Fiscalização e Avaliação da Saúde
+            </div>
+            <span class="text-[11px] text-slate-500">Gestão, Controle e Governança</span>
+          </div>
+        </div>
+
+        <div class="border-t pt-4 mt-3 flex justify-between items-center no-print">
+          <button type="button" @click="imprimirRelatorio()" class="px-4 py-2 bg-indigo-700 hover:bg-indigo-600 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
+            <i class="fa-solid fa-print"></i> Imprimir / Salvar PDF
+          </button>
+          <button type="button" @click="modalRelatorioMensal = false" class="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold transition">
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- FOLHAS DE IMPRESSÃO EXCLUSIVAS (TOTALMENTE INDEPENDENTES E FORA DOS MODAIS) -->
+  <!-- ========================================================================= -->
+
+  <!-- 1. FOLHA EXCLUSIVA: FICHA TÉCNICA DA DEMANDA / FISCALIZAÇÃO -->
+  <div id="folha-impressao-demanda" class="area-papel-impressao" x-show="demandaVisualizada">
+    <div style="border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px; text-align: center;">
+      <h1 style="font-size: 15px; font-weight: bold; text-transform: uppercase; margin: 0; color: #0f172a;">Prefeitura Municipal &bull; Secretaria de Saúde</h1>
+      <h2 style="font-size: 13px; font-weight: bold; text-transform: uppercase; margin: 4px 0 0 0; color: #0369a1;">Subsecretaria de Fiscalização e Avaliação da Saúde</h2>
+      <p style="font-size: 11px; font-family: monospace; color: #64748b; margin: 4px 0 0 0;">FICHA TÉCNICA DE FISCALIZAÇÃO & AUDITORIA OPERACIONAL</p>
+    </div>
+
+    <div style="font-size: 12px; color: #1e293b; line-height: 1.4;">
+      <div style="display: flex; gap: 12px; margin-bottom: 10px;">
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Nº Protocolo / Ofício</span>
+          <strong style="font-size: 13px; color: #0f172a;" x-text="demandaVisualizada?.protocolo"></strong>
+        </div>
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Origem da Demanda</span>
+          <span style="font-weight: 600;" x-text="demandaVisualizada?.origem || 'Não informada'"></span>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 12px; margin-bottom: 10px;">
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Unidade Alvo</span>
+          <strong style="color: #0f172a;" x-text="demandaVisualizada?.unidade_nome || 'Unidade Geral'"></strong>
+        </div>
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Esfera de Gestão</span>
+          <span style="font-weight: 600;" x-text="obterEsferaGestao(demandaVisualizada)"></span>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 12px; margin-bottom: 10px;">
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Eixo Temático</span>
+          <span style="font-weight: 600;" x-text="demandaVisualizada?.tipo_fiscalizacao"></span>
+        </div>
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Grau de Risco</span>
+          <strong x-text="demandaVisualizada?.grau_risco"></strong>
+        </div>
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Status Atual</span>
+          <span style="font-weight: 600;" x-text="demandaVisualizada?.status"></span>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 12px; margin-bottom: 10px;">
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Prazo Fatal / Limite</span>
+          <strong style="font-family: monospace;" x-text="formatarData(demandaVisualizada?.prazo_fatal)"></strong>
+        </div>
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Responsável / Auditor</span>
+          <span style="font-weight: 600;" x-text="demandaVisualizada?.responsavel_atribuido || 'Não atribuído'"></span>
+        </div>
+      </div>
+
+      <div style="border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; margin-bottom: 24px;">
+        <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block; margin-bottom: 6px;">Descrição do Objeto & Despachos de Fiscalização</span>
+        <div style="white-space: pre-wrap; font-family: sans-serif; font-size: 11px; line-height: 1.5; color: #1e293b;" x-text="demandaVisualizada?.descricao || 'Sem histórico registrado.'"></div>
+      </div>
+
+      <div style="padding-top: 36px; text-align: center;">
+        <div style="border-top: 1px solid #475569; width: 50%; margin: 0 auto; padding-top: 6px; font-weight: bold; color: #0f172a;">
+          Subsecretaria de Fiscalização e Avaliação da Saúde
+        </div>
+        <span style="font-size: 10px; color: #64748b;">Gestão, Controle e Governança</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. FOLHA EXCLUSIVA: DOSSIÊ TÉCNICO DA UNIDADE DE SAÚDE (RAIO-X COMPLETO) -->
+  <div id="folha-impressao-dossie" class="area-papel-impressao" x-show="unidadeDossie">
+    <div style="border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px; text-align: center;">
+      <h1 style="font-size: 15px; font-weight: bold; text-transform: uppercase; margin: 0; color: #0f172a;">Prefeitura Municipal &bull; Secretaria de Saúde</h1>
+      <h2 style="font-size: 13px; font-weight: bold; text-transform: uppercase; margin: 4px 0 0 0; color: #0369a1;">Subsecretaria de Fiscalização e Avaliação da Saúde</h2>
+      <p style="font-size: 11px; font-family: monospace; color: #64748b; margin: 4px 0 0 0;">DOSSIÊ TÉCNICO & HISTÓRICO DE FISCALIZAÇÃO DA UNIDADE</p>
+    </div>
+
+    <div style="font-size: 12px; color: #1e293b; line-height: 1.4;">
+      <div style="border: 1px solid #cbd5e1; padding: 12px; border-radius: 6px; margin-bottom: 14px; background-color: #f8fafc;">
+        <span style="font-size: 10px; font-weight: bold; color: #0369a1; text-transform: uppercase; display: block;">Unidade de Saúde</span>
+        <strong style="font-size: 16px; color: #0f172a;" x-text="unidadeDossie?.nome_fantasia"></strong>
+        <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
+          <span>Tipo: <strong style="color: #334155;" x-text="unidadeDossie?.tipo_unidade"></strong></span>
+          <span style="margin-left: 14px;" x-show="unidadeDossie?.cnes && !unidadeDossie?.cnes.startsWith('AUTO-')">CNES: <strong style="color: #334155;" x-text="unidadeDossie?.cnes"></strong></span>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-bottom: 16px; text-align: center;">
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Total Notificações</span>
+          <strong style="font-size: 14px; color: #0f172a;" x-text="demandasDaUnidadeDossie.length"></strong>
+        </div>
+        <div style="flex: 1; border: 1px solid #f59e0b; background-color: #fffbeb; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 9px; font-weight: bold; color: #b45309; text-transform: uppercase; display: block;">Visitas in loco</span>
+          <strong style="font-size: 14px; color: #78350f;" x-text="visitasInLocoDaUnidadeDossie.length"></strong>
+        </div>
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Processos Críticos</span>
+          <strong style="font-size: 14px; color: #e11d48;" x-text="demandasDaUnidadeDossie.filter(d => d.grau_risco === 'Crítico' || d.grau_risco === 'Alto').length"></strong>
+        </div>
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Reuniões Realizadas</span>
+          <strong style="font-size: 14px; color: #047857;" x-text="reunioesDaUnidadeDossie.length"></strong>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <h3 style="font-size: 11px; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #94a3b8; padding-bottom: 4px; margin-bottom: 8px; color: #0f172a;">
+          1. Histórico de Fiscalizações em Campo (Visitas in loco) (<span x-text="visitasInLocoDaUnidadeDossie.length"></span>)
+        </h3>
+        <template x-for="v in visitasInLocoDaUnidadeDossie" :key="v.id">
+          <div style="border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; margin-bottom: 6px;">
+            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px; margin-bottom: 4px;">
+              <span x-text="v.protocolo"></span>
+              <span style="font-family: monospace; color: #b45309;" x-text="formatarData(v.prazo_fatal)"></span>
+            </div>
+            <p style="margin: 0; font-size: 10.5px; color: #334155; line-height: 1.4;" x-text="v.descricao"></p>
+            <div style="font-size: 9.5px; color: #64748b; margin-top: 4px; border-top: 1px dashed #e2e8f0; padding-top: 3px;">
+              <span>Auditor/Fiscal: <strong x-text="v.responsavel_atribuido || 'Equipe FISA'"></strong></span>
+              <span style="margin-left: 12px;" x-text="'Risco apurado: ' + v.grau_risco"></span>
+            </div>
+          </div>
+        </template>
+        <template x-if="visitasInLocoDaUnidadeDossie.length === 0">
+          <p style="font-size: 10px; color: #94a3b8; font-style: italic; margin: 4px 0;">Nenhuma visita in loco registrada para esta unidade.</p>
+        </template>
+      </div>
+
+      <div style="margin-bottom: 24px;">
+        <h3 style="font-size: 11px; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #94a3b8; padding-bottom: 4px; margin-bottom: 8px; color: #0f172a;">
+          2. Processos e Notificações Gerais (<span x-text="demandasDaUnidadeDossie.filter(d => d.tipo_fiscalizacao !== 'Visita in loco').length"></span>)
+        </h3>
+        <template x-for="d in demandasDaUnidadeDossie.filter(d => d.tipo_fiscalizacao !== 'Visita in loco')" :key="d.id">
+          <div style="border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; margin-bottom: 6px;">
+            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px; margin-bottom: 3px;">
+              <span x-text="d.protocolo + ' (' + d.tipo_fiscalizacao + ')'"></span>
+              <span style="font-size: 10px; color: #475569;" x-text="d.status + ' &bull; Prazo: ' + formatarData(d.prazo_fatal)"></span>
+            </div>
+            <p style="margin: 0; font-size: 10.5px; color: #334155; line-height: 1.4;" x-text="d.descricao"></p>
+          </div>
+        </template>
+      </div>
+
+      <div style="padding-top: 30px; text-align: center;">
+        <div style="border-top: 1px solid #475569; width: 50%; margin: 0 auto; padding-top: 6px; font-weight: bold; color: #0f172a;">
+          Subsecretaria de Fiscalização e Avaliação da Saúde
+        </div>
+        <span style="font-size: 10px; color: #64748b;">Gestão, Controle e Governança</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. FOLHA EXCLUSIVA: RELATÓRIO MENSAL EXECUTIVO -->
+  <div id="folha-impressao-relatorio" class="area-papel-impressao">
+    <div style="border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px; text-align: center;">
+      <h1 style="font-size: 15px; font-weight: bold; text-transform: uppercase; margin: 0; color: #0f172a;">Prefeitura Municipal &bull; Secretaria de Saúde</h1>
+      <h2 style="font-size: 13px; font-weight: bold; text-transform: uppercase; margin: 4px 0 0 0; color: #0369a1;">Subsecretaria de Fiscalização e Avaliação da Saúde</h2>
+      <p style="font-size: 11px; font-family: monospace; color: #64748b; margin: 4px 0 0 0;" x-text="'RELATÓRIO MENSAL EXECUTIVO &bull; ' + dataRelatorioExtenso"></p>
+    </div>
+
+    <div style="font-size: 12px; color: #1e293b; line-height: 1.4;">
+      <div style="display: flex; gap: 8px; margin-bottom: 16px; text-align: center;">
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Total de Fiscalizações</span>
+          <strong style="font-size: 14px; color: #0f172a;" x-text="demandasApenasFiscalizacao.length"></strong>
+        </div>
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Concluídas</span>
+          <strong style="font-size: 14px; color: #047857;" x-text="demandasApenasFiscalizacao.filter(d => d.status === 'Concluída').length"></strong>
+        </div>
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Em Andamento</span>
+          <strong style="font-size: 14px; color: #b45309;" x-text="demandasApenasFiscalizacao.filter(d => d.status !== 'Concluída').length"></strong>
+        </div>
+        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Críticas / Alto Risco</span>
+          <strong style="font-size: 14px; color: #e11d48;" x-text="demandasApenasFiscalizacao.filter(d => d.grau_risco === 'Crítico' || d.grau_risco === 'Alto').length"></strong>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <h3 style="font-size: 11px; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #94a3b8; padding-bottom: 4px; margin-bottom: 8px; color: #0f172a;">
+          1. Demandas com Órgãos de Controle (MP / TCE / Ouvidoria)
+        </h3>
+        <template x-for="d in demandasApenasFiscalizacao.filter(d => d.grau_risco === 'Crítico' || d.origem === 'Ministério Público' || d.origem === 'Tribunal de Contas').slice(0, 5)" :key="d.id">
+          <div style="border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; margin-bottom: 6px;">
+            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px; margin-bottom: 2px;">
+              <span x-text="d.protocolo + ' &bull; ' + (d.unidade_nome || 'Geral') + ' (' + obterEsferaGestao(d) + ')'"></span>
+              <span style="color: #e11d48;" x-text="d.grau_risco"></span>
+            </div>
+            <p style="margin: 0; font-size: 10px; color: #475569;" x-text="d.descricao"></p>
+          </div>
+        </template>
+      </div>
+
+      <div style="padding-top: 36px; text-align: center;">
+        <div style="border-top: 1px solid #475569; width: 50%; margin: 0 auto; padding-top: 6px; font-weight: bold; color: #0f172a;">
+          Subsecretaria de Fiscalização e Avaliação da Saúde
+        </div>
+        <span style="font-size: 10px; color: #64748b;">Gestão, Controle e Governança</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'https://sisfisa-api.onrender.com';
+
+    function fisaApp() {
+      return {
+        abaAtiva: 'fiscalizacoes',
+        abrirModal: false,
+        abrirModalNovaReuniao: false,
+        abrirModalNovaVisita: false,
+        abrirModalUnidade: false,
+        modalVisualizar: false,
+        modalRelatorioMensal: false,
+        modalDossieUnidade: false,
+        
+        modoImpressao: '', // 'demanda' | 'dossie' | 'relatorio'
+
+        editandoId: null,
+        demandaVisualizada: null,
+        unidadeDossie: null,
+
+        carregando: false,
+        salvando: false,
+        salvandoUnidade: false,
+        salvandoDespacho: false,
+        conectandoRender: false,
+        
+        filtroRapido: 'todos',
+        busca: '',
+        
+        demandas: [],
+        unidades: [],
+        toasts: [],
+        
+        dataCalendarioAtual: new Date(),
+        diaSelecionadoIso: null,
+
+        chartGestaoInstancia: null,
+        chartEixosInstancia: null,
+        chartRiscoInstancia: null,
+
+        novoDespachoTexto: '',
+        novoDespachoAutor: 'Fiscalização',
+
+        formDemanda: {
+          protocolo: '',
+          origem: 'Ministério Público',
+          unidade_id: '',
+          esfera_gestao: 'Administração Municipal (Direta)',
+          tipo_fiscalizacao: 'Assistencial',
+          grau_risco: 'Médio',
+          prazo_fatal: '',
+          descricao: '',
+          responsavel_atribuido: 'Comissão de Auditoria'
+        },
+
+        formVisita: {
+          protocolo: '',
+          origem: 'Fiscalização in loco',
+          unidade_id: '',
+          esfera_gestao: 'Administração Municipal (Direta)',
+          tipo_fiscalizacao: 'Visita in loco',
+          grau_risco: 'Médio',
+          prazo_fatal: '',
+          descricao: '',
+          responsavel_atribuido: ''
+        },
+
+        formReuniao: {
+          protocolo: '',
+          origem: 'Reunião de Alinhamento',
+          unidade_id: '',
+          esfera_gestao: 'Administração Municipal (Direta)',
+          tipo_fiscalizacao: 'Reunião',
+          grau_risco: 'Baixo',
+          prazo_fatal: '',
+          descricao: '',
+          responsavel_atribuido: ''
+        },
+
+        formUnidade: {
+          nome_fantasia: '',
+          tipo_unidade: 'Atenção Básica (ESF/UBS)'
+        },
+
+        mostrarToast(mensagem, tipo = 'sucesso') {
+          const id = Date.now();
+          this.toasts.push({ id, mensagem, tipo });
+          setTimeout(() => {
+            this.toasts = this.toasts.filter(t => t.id !== id);
+          }, 4000);
+        },
+
+        async iniciarApp() {
+          this.carregando = true;
+          const timeoutId = setTimeout(() => {
+            if (this.carregando) this.conectandoRender = true;
+          }, 2500);
+
+          try {
+            await Promise.all([
+              this.carregarDemandas(),
+              this.carregarUnidades()
+            ]);
+          } finally {
+            clearTimeout(timeoutId);
+            this.conectandoRender = false;
+            this.carregando = false;
+          }
+        },
+
+        mudarAba(aba) {
+          this.abaAtiva = aba;
+          if (aba === 'indicadores') {
+            this.$nextTick(() => {
+              this.atualizarGraficos();
+            });
+          }
+        },
+
+        async carregarDemandas() {
+          try {
+            const res = await fetch(`${API_URL}/api/demandas`);
+            if (!res.ok) throw new Error();
+            this.demandas = await res.json();
+            if (this.abaAtiva === 'indicadores') {
+              this.atualizarGraficos();
+            }
+          } catch (err) {
+            this.mostrarToast('Erro ao sincronizar dados com o servidor.', 'erro');
+          }
+        },
+
+        async carregarUnidades() {
+          try {
+            const res = await fetch(`${API_URL}/api/unidades`);
+            if (res.ok) this.unidades = await res.json();
+          } catch (e) {
+            console.error(e);
+          }
+        },
+
+        // --- CONTROLE DE IMPRESSÃO INDIVIDUAL ---
+        imprimirFicha() {
+          if (!this.demandaVisualizada) return;
+          this.modoImpressao = 'demanda';
+          setTimeout(() => {
+            window.print();
+            this.modoImpressao = '';
+          }, 100);
+        },
+
+        imprimirDossie() {
+          if (!this.unidadeDossie) return;
+          this.modoImpressao = 'dossie';
+          setTimeout(() => {
+            window.print();
+            this.modoImpressao = '';
+          }, 100);
+        },
+
+        imprimirRelatorio() {
+          this.modoImpressao = 'relatorio';
+          setTimeout(() => {
+            window.print();
+            this.modoImpressao = '';
+          }, 100);
+        },
+
+        // --- MÓDULO VISITAS IN LOCO ---
+        abrirModalNovaVisita(unidadeId = '') {
+          const hojeIso = new Date().toISOString().substring(0, 10);
+          this.formVisita = {
+            protocolo: 'VISTORIA-' + new Date().getFullYear() + '/' + String(Math.floor(Math.random() * 900) + 100),
+            origem: 'Fiscalização in loco',
+            unidade_id: unidadeId || '',
+            esfera_gestao: 'Administração Municipal (Direta)',
+            tipo_fiscalizacao: 'Visita in loco',
+            grau_risco: 'Médio',
+            prazo_fatal: hojeIso,
+            descricao: '',
+            responsavel_atribuido: 'Auditor Rafael Reis'
+          };
+          this.abrirModalVisita = true;
+        },
+
+        async salvarVisitaInLoco() {
+          this.salvando = true;
+          try {
+            const payload = {
+              ...this.formVisita,
+              unidade_id: this.formVisita.unidade_id || null,
+              status: 'Concluída'
+            };
+
+            const res = await fetch(`${API_URL}/api/demandas`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) throw new Error('Falha ao registrar vistoria.');
+
+            this.abrirModalVisita = false;
+            await this.carregarDemandas();
+            this.mostrarToast(`Visita in loco "${payload.protocolo}" registrada!`);
+          } catch (err) {
+            this.mostrarToast(err.message, 'erro');
+          } finally {
+            this.salvando = false;
+          }
+        },
+
+        contarVisitasPorUnidade(unidadeId) {
+          return this.demandas.filter(d => d.unidade_id === unidadeId && d.tipo_fiscalizacao === 'Visita in loco').length;
+        },
+
+        get todasVisitasInLoco() {
+          return this.demandas.filter(d => d.tipo_fiscalizacao === 'Visita in loco');
+        },
+
+        get visitasInLocoDaUnidadeDossie() {
+          if (!this.unidadeDossie) return [];
+          return this.demandas.filter(d => 
+            d.unidade_id === this.unidadeDossie.id && 
+            d.tipo_fiscalizacao === 'Visita in loco'
+          );
+        },
+
+        // --- DOSSIÊ DA UNIDADE ---
+        abrirDossieUnidade(u) {
+          this.unidadeDossie = u;
+          this.modalDossieUnidade = true;
+        },
+
+        get demandasDaUnidadeDossie() {
+          if (!this.unidadeDossie) return [];
+          return this.demandas.filter(d => 
+            d.unidade_id === this.unidadeDossie.id && 
+            d.tipo_fiscalizacao !== 'Reunião'
+          );
+        },
+
+        get reunioesDaUnidadeDossie() {
+          if (!this.unidadeDossie) return [];
+          return this.demandas.filter(d => 
+            d.unidade_id === this.unidadeDossie.id && 
+            d.tipo_fiscalizacao === 'Reunião'
+          );
+        },
+
+        // --- FLUXO DE TRABALHO & AUDITORES ---
+        get fluxoPorAuditor() {
+          const mapa = {};
+          this.demandasApenasFiscalizacao.forEach(d => {
+            const auditor = d.responsavel_atribuido && d.responsavel_atribuido.trim() !== '' 
+              ? d.responsavel_atribuido.trim() 
+              : 'Não Atribuído';
+            
+            if (!mapa[auditor]) {
+              mapa[auditor] = {
+                total: 0,
+                emAndamento: 0,
+                criticos: 0,
+                concluidos: 0,
+                processos: []
+              };
+            }
+
+            mapa[auditor].total++;
+            if (d.status === 'Concluída') {
+              mapa[auditor].concluidos++;
+            } else {
+              mapa[auditor].emAndamento++;
+            }
+
+            if (d.grau_risco === 'Crítico' || d.grau_risco === 'Alto') {
+              mapa[auditor].criticos++;
+            }
+
+            mapa[auditor].processos.push(d);
+          });
+          return mapa;
+        },
+
+        filtrarPorAuditor(auditor) {
+          this.busca = auditor === 'Não Atribuído' ? '' : auditor;
+          this.abaAtiva = 'fiscalizacoes';
+        },
+
+        abrirNovoModal() {
+          this.editandoId = null;
+          this.formDemanda = {
+            protocolo: '',
+            origem: 'Ministério Público',
+            unidade_id: '',
+            esfera_gestao: 'Administração Municipal (Direta)',
+            tipo_fiscalizacao: 'Assistencial',
+            grau_risco: 'Médio',
+            prazo_fatal: '',
+            descricao: '',
+            responsavel_atribuido: 'Comissão de Auditoria'
+          };
+          this.abrirModal = true;
+        },
+
+        iniciarEdicao(demanda) {
+          this.editandoId = demanda.id;
+          this.formDemanda = {
+            protocolo: demanda.protocolo,
+            origem: demanda.origem || 'Rotina da Subsecretaria',
+            unidade_id: demanda.unidade_id || '',
+            esfera_gestao: this.obterEsferaGestao(demanda),
+            tipo_fiscalizacao: demanda.tipo_fiscalizacao || 'Assistencial',
+            grau_risco: demanda.grau_risco || 'Médio',
+            prazo_fatal: demanda.prazo_fatal ? demanda.prazo_fatal.substring(0, 10) : '',
+            descricao: demanda.descricao || '',
+            responsavel_atribuido: demanda.responsavel_atribuido || 'Comissão de Auditoria'
+          };
+          this.abrirModal = true;
+        },
+
+        async salvarDemanda() {
           this.salvando = true;
           try {
             const payload = {
@@ -33,3 +1650,457 @@ async salvarDemanda() {
             this.salvando = false;
           }
         },
+
+        get demandasApenasFiscalizacao() {
+          return this.demandas.filter(d => d.tipo_fiscalizacao !== 'Reunião');
+        },
+
+        get demandasFiltradas() {
+          let lista = this.demandasApenasFiscalizacao;
+
+          if (this.filtroRapido === 'visitas') {
+            lista = lista.filter(d => d.tipo_fiscalizacao === 'Visita in loco');
+          } else if (this.filtroRapido === 'vencidos') {
+            lista = lista.filter(d => this.estaVencido(d.prazo_fatal, d.status));
+          } else if (this.filtroRapido === 'andamento') {
+            lista = lista.filter(d => d.status === 'Em andamento' || d.status === 'Triagem');
+          } else if (this.filtroRapido === 'concluidas') {
+            lista = lista.filter(d => d.status === 'Concluída');
+          } else if (this.filtroRapido === 'os') {
+            lista = lista.filter(d => this.obterEsferaGestao(d) === 'Organização Social (OS)');
+          } else if (this.filtroRapido === 'municipio') {
+            lista = lista.filter(d => this.obterEsferaGestao(d) === 'Administração Municipal (Direta)');
+          }
+
+          if (!this.busca) return lista;
+          const termo = this.busca.toLowerCase();
+          return lista.filter(d => 
+            (d.protocolo && d.protocolo.toLowerCase().includes(termo)) ||
+            (d.unidade_nome && d.unidade_nome.toLowerCase().includes(termo)) ||
+            (d.origem && d.origem.toLowerCase().includes(termo)) ||
+            (d.responsavel_atribuido && d.responsavel_atribuido.toLowerCase().includes(termo)) ||
+            (this.obterEsferaGestao(d).toLowerCase().includes(termo))
+          );
+        },
+
+        get alertasPrioritarios() {
+          return this.demandasApenasFiscalizacao.filter(d => {
+            if (d.status === 'Concluída') return false;
+            const riscoAlto = d.grau_risco === 'Crítico' || d.grau_risco === 'Alto';
+            const orgaoExterno = d.origem === 'Ministério Público' || d.origem === 'Tribunal de Contas';
+            const vencidoOuQuase = this.diasAtePrazo(d.prazo_fatal) <= 3;
+            return (riscoAlto && vencidoOuQuase) || (orgaoExterno && vencidoOuQuase) || d.grau_risco === 'Crítico';
+          }).slice(0, 6);
+        },
+
+        diasAtePrazo(dataIso) {
+          if (!dataIso) return 999;
+          const hoje = new Date();
+          hoje.setHours(0, 0, 0, 0);
+          const [ano, mes, dia] = dataIso.substring(0, 10).split('-');
+          const prazo = new Date(Number(ano), Number(mes) - 1, Number(dia));
+          prazo.setHours(0, 0, 0, 0);
+          return Math.round((prazo - hoje) / (1000 * 60 * 60 * 24));
+        },
+
+        atualizarGraficos() {
+          const dadosFiscalizacao = this.demandasApenasFiscalizacao;
+
+          const totalDireta = dadosFiscalizacao.filter(d => this.obterEsferaGestao(d) === 'Administração Municipal (Direta)').length;
+          const totalOS = dadosFiscalizacao.filter(d => this.obterEsferaGestao(d) === 'Organização Social (OS)').length;
+
+          const ctxGestao = document.getElementById('chartGestao');
+          if (ctxGestao) {
+            if (this.chartGestaoInstancia) this.chartGestaoInstancia.destroy();
+            this.chartGestaoInstancia = new Chart(ctxGestao, {
+              type: 'doughnut',
+              data: {
+                labels: ['Administração Direta', 'Organização Social (OS)'],
+                datasets: [{
+                  data: [totalDireta, totalOS],
+                  backgroundColor: ['#0284c7', '#7e22ce']
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
+              }
+            });
+          }
+
+          const contagemEixos = {};
+          dadosFiscalizacao.forEach(d => {
+            const eixo = d.tipo_fiscalizacao || 'Outros';
+            contagemEixos[eixo] = (contagemEixos[eixo] || 0) + 1;
+          });
+
+          const ctxEixos = document.getElementById('chartEixos');
+          if (ctxEixos) {
+            if (this.chartEixosInstancia) this.chartEixosInstancia.destroy();
+            this.chartEixosInstancia = new Chart(ctxEixos, {
+              type: 'bar',
+              data: {
+                labels: Object.keys(contagemEixos),
+                datasets: [{
+                  label: 'Demandas',
+                  data: Object.values(contagemEixos),
+                  backgroundColor: '#0ea5e9'
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 } } }, x: { ticks: { font: { size: 10 } } } }
+              }
+            });
+          }
+
+          const criticos = dadosFiscalizacao.filter(d => d.grau_risco === 'Crítico').length;
+          const altos = dadosFiscalizacao.filter(d => d.grau_risco === 'Alto').length;
+          const medios = dadosFiscalizacao.filter(d => d.grau_risco === 'Médio').length;
+          const baixos = dadosFiscalizacao.filter(d => d.grau_risco === 'Baixo').length;
+
+          const ctxRisco = document.getElementById('chartRisco');
+          if (ctxRisco) {
+            if (this.chartRiscoInstancia) this.chartRiscoInstancia.destroy();
+            this.chartRiscoInstancia = new Chart(ctxRisco, {
+              type: 'pie',
+              data: {
+                labels: ['Crítico', 'Alto', 'Médio', 'Baixo'],
+                datasets: [{
+                  data: [criticos, altos, medios, baixos],
+                  backgroundColor: ['#e11d48', '#f59e0b', '#3b82f6', '#94a3b8']
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
+              }
+            });
+          }
+        },
+
+        abrirRelatorioMensal() { this.modalRelatorioMensal = true; },
+        get dataRelatorioExtenso() {
+          return new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase();
+        },
+        get nomeMesAtual() {
+          return this.dataCalendarioAtual.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+        },
+        mudarMes(delta) {
+          const d = new Date(this.dataCalendarioAtual);
+          d.setMonth(d.getMonth() + delta);
+          this.dataCalendarioAtual = d;
+        },
+        irParaMesAtual() {
+          this.dataCalendarioAtual = new Date();
+          this.diaSelecionadoIso = null;
+        },
+        selecionarDiaCalendario(dataIso) { this.diaSelecionadoIso = dataIso; },
+
+        get diasCalendario() {
+          const ano = this.dataCalendarioAtual.getFullYear();
+          const mes = this.dataCalendarioAtual.getMonth();
+
+          const primeiroDia = new Date(ano, mes, 1);
+          const ultimoDia = new Date(ano, mes + 1, 0);
+
+          const dias = [];
+          const diaSemanaInicio = primeiroDia.getDay();
+
+          const ultimoDiaMesAnterior = new Date(ano, mes, 0).getDate();
+          for (let i = diaSemanaInicio - 1; i >= 0; i--) {
+            const diaNum = ultimoDiaMesAnterior - i;
+            const dataIso = new Date(ano, mes - 1, diaNum).toISOString().substring(0, 10);
+            dias.push({ numeroDia: diaNum, dataIso, mesmoMes: false, ehHoje: false });
+          }
+
+          const hojeIso = new Date().toISOString().substring(0, 10);
+          for (let i = 1; i <= ultimoDia.getDate(); i++) {
+            const dataIso = `${ano}-${String(mes + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+            dias.push({ numeroDia: i, dataIso, mesmoMes: true, ehHoje: dataIso === hojeIso });
+          }
+
+          const totalCelulas = dias.length <= 35 ? 35 : 42;
+          const restantes = totalCelulas - dias.length;
+          for (let i = 1; i <= restantes; i++) {
+            const dataIso = new Date(ano, mes + 1, i).toISOString().substring(0, 10);
+            dias.push({ numeroDia: i, dataIso, mesmoMes: false, ehHoje: false });
+          }
+
+          return dias;
+        },
+
+        get reunioes() {
+          return this.demandas.filter(d => d.tipo_fiscalizacao === 'Reunião');
+        },
+
+        obterReunioesDoDia(dataIso) {
+          if (!dataIso) return [];
+          return this.reunioes.filter(r => r.prazo_fatal && r.prazo_fatal.substring(0, 10) === dataIso);
+        },
+
+        get reunioesFiltradasLateral() {
+          if (this.diaSelecionadoIso) {
+            return this.obterReunioesDoDia(this.diaSelecionadoIso);
+          }
+          return this.reunioes.slice(0, 8);
+        },
+
+        abrirModalReuniao(dataPrevia = null) {
+          this.formReuniao = {
+            protocolo: '',
+            origem: 'Reunião de Alinhamento',
+            unidade_id: '',
+            esfera_gestao: 'Administração Municipal (Direta)',
+            tipo_fiscalizacao: 'Reunião',
+            grau_risco: 'Baixo',
+            prazo_fatal: dataPrevia || new Date().toISOString().substring(0, 10),
+            descricao: '',
+            responsavel_atribuido: ''
+          };
+          this.abrirModalNovaReuniao = true;
+        },
+
+        async salvarReuniao() {
+          this.salvando = true;
+          try {
+            const payload = {
+              ...this.formReuniao,
+              unidade_id: this.formReuniao.unidade_id || null
+            };
+
+            const res = await fetch(`${API_URL}/api/demandas`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) throw new Error('Falha ao agendar reunião.');
+
+            this.abrirModalNovaReuniao = false;
+            await this.carregarDemandas();
+            this.mostrarToast(`Reunião "${payload.protocolo}" agendada!`);
+          } catch (err) {
+            this.mostrarToast(err.message, 'erro');
+          } finally {
+            this.salvando = false;
+          }
+        },
+
+        abrirModalNovaUnidade() {
+          this.formUnidade = { nome_fantasia: '', tipo_unidade: 'Atenção Básica (ESF/UBS)' };
+          this.abrirModalUnidade = true;
+        },
+
+        async salvarUnidade() {
+          this.salvandoUnidade = true;
+          try {
+            const res = await fetch(`${API_URL}/api/unidades`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.formUnidade)
+            });
+
+            if (!res.ok) {
+              const err = await res.json();
+              throw new Error(err.error || 'Falha ao salvar unidade.');
+            }
+
+            const novaUnidade = await res.json();
+            await this.carregarUnidades();
+            this.formUnidade.nome_fantasia = '';
+            this.mostrarToast(`Unidade "${novaUnidade.nome_fantasia}" cadastrada!`);
+          } catch (err) {
+            this.mostrarToast(err.message, 'erro');
+          } finally {
+            this.salvandoUnidade = false;
+          }
+        },
+
+        async excluirUnidade(id, nome) {
+          if (!confirm(`Deseja realmente excluir a unidade "${nome}"?`)) return;
+
+          try {
+            const res = await fetch(`${API_URL}/api/unidades/${id}`, { method: 'DELETE' });
+            if (!res.ok) {
+              const err = await res.json();
+              throw new Error(err.error || 'Não foi possível excluir a unidade.');
+            }
+
+            await this.carregarUnidades();
+            this.mostrarToast(`Unidade "${nome}" excluída com sucesso!`);
+          } catch (err) {
+            this.mostrarToast(err.message, 'erro');
+          }
+        },
+
+        visualizarDemanda(d) {
+          this.demandaVisualizada = d;
+          this.novoDespachoTexto = '';
+          this.modalVisualizar = true;
+        },
+
+        async salvarDespacho() {
+          if (!this.novoDespachoTexto.trim()) {
+            this.mostrarToast('Digite o despacho antes de gravar.', 'erro');
+            return;
+          }
+
+          this.salvandoDespacho = true;
+          try {
+            const res = await fetch(`${API_URL}/api/demandas/${this.demandaVisualizada.id}/despachos`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                texto: this.novoDespachoTexto,
+                autor: this.novoDespachoAutor
+              })
+            });
+
+            if (!res.ok) throw new Error('Não foi possível gravar o despacho.');
+
+            const atualizada = await res.json();
+            this.demandaVisualizada.descricao = atualizada.descricao;
+            
+            const idx = this.demandas.findIndex(d => d.id === this.demandaVisualizada.id);
+            if (idx !== -1) this.demandas[idx].descricao = atualizada.descricao;
+
+            this.novoDespachoTexto = '';
+            this.mostrarToast('Despacho registrado no histórico!');
+          } catch (e) {
+            this.mostrarToast(e.message, 'erro');
+          } finally {
+            this.salvandoDespacho = false;
+          }
+        },
+
+        exportarParaCSV() {
+          if (this.demandasFiltradas.length === 0) {
+            this.mostrarToast('Não há dados filtrados para exportar.', 'info');
+            return;
+          }
+
+          const cabecalho = ['Protocolo', 'Origem', 'Unidade Alvo', 'Esfera Gestao', 'Eixo', 'Risco', 'Prazo Fatal', 'Status', 'Responsavel'];
+          const linhas = this.demandasFiltradas.map(d => [
+            `"${d.protocolo || ''}"`,
+            `"${d.origem || ''}"`,
+            `"${d.unidade_nome || 'Unidade Geral'}"`,
+            `"${this.obterEsferaGestao(d)}"`,
+            `"${d.tipo_fiscalizacao || ''}"`,
+            `"${d.grau_risco || ''}"`,
+            `"${this.formatarData(d.prazo_fatal)}"`,
+            `"${d.status || ''}"`,
+            `"${d.responsavel_atribuido || ''}"`
+          ]);
+
+          const conteudo = [cabecalho.join(';'), ...linhas.map(l => l.join(';'))].join('\n');
+          const blob = new Blob(["\uFEFF" + conteudo], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.setAttribute('href', url);
+          link.setAttribute('download', `SISFISA_Relatorio_${new Date().toISOString().substring(0, 10)}.csv`);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          this.mostrarToast('Relatório CSV baixado com sucesso!');
+        },
+
+        obterEsferaGestao(d) {
+          if (!d) return 'Município';
+          if (d.esfera_gestao) return d.esfera_gestao;
+          if (d.descricao && d.descricao.includes('[GESTÃO: Organização Social (OS)]')) {
+            return 'Organização Social (OS)';
+          }
+          if (d.origem === 'Organização Social') {
+            return 'Organização Social (OS)';
+          }
+          return 'Administração Municipal (Direta)';
+        },
+
+        async avancarStatus(d) {
+          const proximoStatus = d.status === 'Triagem' ? 'Em andamento' : (d.status === 'Em andamento' ? 'Concluída' : 'Triagem');
+          try {
+            const res = await fetch(`${API_URL}/api/demandas/${d.id}/status`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: proximoStatus })
+            });
+            if (res.ok) {
+              d.status = proximoStatus;
+              this.mostrarToast(`Status alterado para: ${proximoStatus}`);
+              if (this.abaAtiva === 'indicadores') this.atualizarGraficos();
+            }
+          } catch (err) {
+            this.mostrarToast('Não foi possível atualizar o status.', 'erro');
+          }
+        },
+
+        async excluirDemanda(id, protocolo) {
+          if (!confirm(`Deseja realmente excluir permanentemente "${protocolo}"?`)) return;
+
+          try {
+            const res = await fetch(`${API_URL}/api/demandas/${id}`, { method: 'DELETE' });
+            if (!res.ok) {
+              const err = await res.json();
+              throw new Error(err.error || 'Erro ao excluir');
+            }
+
+            await this.carregarDemandas();
+            this.mostrarToast(`Registro "${protocolo}" excluído!`);
+          } catch (error) {
+            this.mostrarToast(error.message, 'erro');
+          }
+        },
+
+        formatarData(dataIso) {
+          if (!dataIso) return '-';
+          const [ano, mes, dia] = dataIso.substring(0, 10).split('-');
+          return `${dia}/${mes}/${ano}`;
+        },
+
+        estaVencido(dataIso, status) {
+          if (!dataIso || status === 'Concluída') return false;
+          const hoje = new Date();
+          hoje.setHours(0, 0, 0, 0);
+
+          const [ano, mes, dia] = dataIso.substring(0, 10).split('-');
+          const prazo = new Date(Number(ano), Number(mes) - 1, Number(dia));
+          prazo.setHours(0, 0, 0, 0);
+
+          return prazo < hoje;
+        },
+
+        renderizarBadgePrazo(dataIso, status) {
+          if (!dataIso) return '';
+          if (status === 'Concluída') {
+            return `<span class="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">Concluída / Registrada</span>`;
+          }
+
+          const hoje = new Date();
+          hoje.setHours(0, 0, 0, 0);
+
+          const [ano, mes, dia] = dataIso.substring(0, 10).split('-');
+          const prazo = new Date(Number(ano), Number(mes) - 1, Number(dia));
+          prazo.setHours(0, 0, 0, 0);
+
+          const diferencaDias = Math.round((prazo - hoje) / (1000 * 60 * 60 * 24));
+
+          if (diferencaDias < 0) {
+            return `<span class="inline-flex items-center text-[10px] font-bold text-rose-700 bg-rose-100 border border-rose-300 px-1.5 py-0.5 rounded"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Atrasado há ${Math.abs(diferencaDias)}d</span>`;
+          } else if (diferencaDias === 0) {
+            return `<span class="inline-flex items-center text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded animate-pulse"><i class="fa-solid fa-bell mr-1"></i> Vence Hoje!</span>`;
+          } else if (diferencaDias <= 3) {
+            return `<span class="inline-flex items-center text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">Restam ${diferencaDias}d</span>`;
+          } else {
+            return `<span class="inline-flex items-center text-[10px] font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">Faltam ${diferencaDias}d</span>`;
+          }
+        }
+      }
+    }
+  </script>
+</body>
+</html>
