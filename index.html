@@ -11,7 +11,6 @@
   <style>
     [x-cloak] { display: none !important; }
 
-    /* As folhas de impressão ficam ocultas na tela do computador */
     .area-papel-impressao { display: none; }
 
     @media print {
@@ -19,12 +18,9 @@
         background-color: white !important;
         color: black !important;
       }
-      /* Oculta tudo da interface web */
       header, main, .no-print, [role="dialog"], .fixed {
         display: none !important;
       }
-
-      /* Controla a exibição exata do que foi solicitado imprimir */
       body.imprimindo-demanda #folha-impressao-demanda {
         display: block !important;
         width: 100% !important;
@@ -113,7 +109,10 @@
 
       <div class="flex items-center gap-2">
         <button @click="abrirModalNovaVisita()" class="bg-amber-600 hover:bg-amber-500 text-white px-3 py-2 rounded-lg font-semibold text-xs sm:text-sm flex items-center transition shadow-sm">
-          <i class="fa-solid fa-location-dot mr-1.5"></i> Registrar Visita
+          <i class="fa-solid fa-location-dot mr-1.5"></i> Agendar Visita
+        </button>
+        <button @click="abrirModalReuniao()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg font-semibold text-xs sm:text-sm flex items-center transition shadow-sm">
+          <i class="fa-solid fa-calendar-plus mr-1.5"></i> Agendar Reunião
         </button>
         <button @click="abrirRelatorioMensal()" class="bg-indigo-700 hover:bg-indigo-600 text-white px-3 py-2 rounded-lg font-medium text-xs sm:text-sm flex items-center transition shadow-sm">
           <i class="fa-solid fa-file-contract mr-1.5"></i> Relatório
@@ -228,7 +227,7 @@
                 <th class="p-4">Gestão</th>
                 <th class="p-4">Tipo / Eixo</th>
                 <th class="p-4">Responsável</th>
-                <th class="p-4">Data / Prazo</th>
+                <th class="p-4">Data e Horário</th>
                 <th class="p-4">Status</th>
                 <th class="p-4 text-center">Ações</th>
               </tr>
@@ -265,7 +264,7 @@
                     <span class="font-medium text-xs text-slate-700" x-text="d.responsavel_atribuido || 'Não atribuído'"></span>
                   </td>
                   <td class="p-4">
-                    <div class="font-mono text-xs font-semibold" x-text="formatarData(d.prazo_fatal)"></div>
+                    <div class="font-mono text-xs font-semibold" x-text="formatarDataComHora(d.prazo_fatal)"></div>
                     <div class="mt-1" x-html="renderizarBadgePrazo(d.prazo_fatal, d.status)"></div>
                   </td>
                   <td class="p-4">
@@ -278,7 +277,7 @@
                       <button @click="visualizarDemanda(d)" class="text-slate-700 hover:text-sky-700 text-xs font-semibold px-2 py-1 border border-slate-300 rounded hover:bg-slate-100 transition" title="Detalhes e Despachos">
                         <i class="fa-regular fa-eye"></i>
                       </button>
-                      <button @click="iniciarEdicao(d)" class="text-amber-700 hover:text-amber-900 text-xs font-semibold px-2 py-1 border border-amber-300 rounded hover:bg-amber-50 transition" title="Editar Demanda">
+                      <button @click="iniciarEdicao(d)" class="text-amber-700 hover:text-amber-900 text-xs font-semibold px-2 py-1 border border-amber-300 rounded hover:bg-amber-50 transition" title="Editar">
                         <i class="fa-solid fa-pen-to-square"></i>
                       </button>
                       <button @click="avancarStatus(d)" class="text-sky-600 hover:text-sky-800 text-xs font-semibold px-2 py-1 border border-sky-300 rounded hover:bg-sky-50 transition" title="Mudar Status">
@@ -344,7 +343,7 @@
                 <template x-for="p in dados.processos.filter(x => x.status !== 'Concluída').slice(0, 4)" :key="p.id">
                   <div class="p-1.5 bg-slate-50 border rounded text-[11px] flex justify-between items-center hover:bg-slate-100 cursor-pointer" @click="iniciarEdicao(p)">
                     <span class="font-bold text-slate-700 truncate max-w-[170px]" x-text="p.protocolo"></span>
-                    <span class="text-[10px] text-slate-400" x-text="formatarData(p.prazo_fatal)"></span>
+                    <span class="text-[10px] text-slate-400" x-text="formatarDataComHora(p.prazo_fatal)"></span>
                   </div>
                 </template>
               </div>
@@ -406,7 +405,7 @@
       </div>
     </div>
 
-    <!-- ==================== ABA 4: CALENDÁRIO & REUNIÕES ==================== -->
+    <!-- ==================== ABA 4: CALENDÁRIO & REUNIÕES / VISITAS ==================== -->
     <div x-show="abaAtiva === 'calendario'" x-cloak class="space-y-6">
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
@@ -431,7 +430,7 @@
             <template x-for="(diaObj, idx) in diasCalendario" :key="idx">
               <div 
                 @click="selecionarDiaCalendario(diaObj.dataIso)"
-                class="min-h-[78px] p-1.5 border rounded-lg flex flex-col justify-between transition cursor-pointer"
+                class="min-h-[84px] p-1.5 border rounded-lg flex flex-col justify-between transition cursor-pointer"
                 :class="{
                   'bg-slate-50 opacity-40': !diaObj.mesmoMes,
                   'border-emerald-500 bg-emerald-50/40': diaObj.dataIso === diaSelecionadoIso,
@@ -440,12 +439,18 @@
                 }">
                 <div class="flex justify-between items-center">
                   <span class="text-xs font-bold" :class="diaObj.ehHoje ? 'text-sky-700 underline' : 'text-slate-700'" x-text="diaObj.numeroDia"></span>
-                  <span x-show="obterReunioesDoDia(diaObj.dataIso).length > 0" class="text-[10px] font-bold px-1.5 py-0.2 bg-emerald-600 text-white rounded-full" x-text="obterReunioesDoDia(diaObj.dataIso).length"></span>
+                  <span x-show="obterCompromissosDoDia(diaObj.dataIso).length > 0" class="text-[10px] font-bold px-1.5 py-0.2 bg-sky-800 text-white rounded-full" x-text="obterCompromissosDoDia(diaObj.dataIso).length"></span>
                 </div>
 
-                <div class="space-y-0.5 mt-1 overflow-hidden">
-                  <template x-for="r in obterReunioesDoDia(diaObj.dataIso).slice(0, 2)" :key="r.id">
-                    <div class="text-[10px] truncate px-1 py-0.5 rounded bg-emerald-100 text-emerald-800 font-medium" :title="r.protocolo" x-text="r.protocolo"></div>
+                <div class="space-y-1 mt-1 overflow-hidden">
+                  <template x-for="r in obterCompromissosDoDia(diaObj.dataIso).slice(0, 2)" :key="r.id">
+                    <div 
+                      class="text-[10px] truncate px-1 py-0.5 rounded font-medium flex items-center gap-1"
+                      :class="r.tipo_fiscalizacao === 'Visita in loco' ? 'bg-amber-100 text-amber-900 border border-amber-200' : 'bg-emerald-100 text-emerald-900 border border-emerald-200'"
+                      :title="r.protocolo">
+                      <span class="font-mono text-[9px] font-bold" x-text="extrairHora(r.prazo_fatal) || ''"></span>
+                      <span class="truncate" x-text="r.protocolo"></span>
+                    </div>
                   </template>
                 </div>
               </div>
@@ -453,34 +458,67 @@
           </div>
         </div>
 
+        <!-- Painel Lateral: Compromissos do Dia (com Horário, Editar e Excluir) -->
         <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex flex-col justify-between">
           <div>
             <div class="flex justify-between items-center mb-3 pb-2 border-b">
-              <span class="text-xs font-bold text-slate-700 uppercase">
-                <i class="fa-solid fa-clock mr-1 text-emerald-600"></i>
-                <span x-text="diaSelecionadoIso ? 'Compromissos em ' + formatarData(diaSelecionadoIso) : 'Próximas Reuniões'"></span>
+              <span class="text-xs font-bold text-slate-700 uppercase flex items-center gap-1">
+                <i class="fa-solid fa-clock text-emerald-600"></i>
+                <span x-text="diaSelecionadoIso ? 'Agenda em ' + formatarData(diaSelecionadoIso) : 'Próximos Compromissos'"></span>
               </span>
-              <button @click="abrirModalReuniao(diaSelecionadoIso)" class="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1">
-                <i class="fa-solid fa-plus-circle"></i> Agendar
-              </button>
+              <div class="flex gap-1">
+                <button @click="abrirModalReuniao(diaSelecionadoIso)" class="text-[11px] font-bold text-emerald-700 hover:bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200" title="Agendar Reunião">
+                  + Reunião
+                </button>
+                <button @click="abrirModalNovaVisita('', diaSelecionadoIso)" class="text-[11px] font-bold text-amber-700 hover:bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200" title="Agendar Visita in loco">
+                  + Visita
+                </button>
+              </div>
             </div>
 
-            <div class="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
-              <template x-for="r in reunioesFiltradasLateral" :key="r.id">
-                <div class="p-3 bg-slate-50 hover:bg-emerald-50/50 border rounded-xl transition space-y-1.5">
-                  <div class="flex justify-between items-start">
-                    <h4 class="font-bold text-xs text-slate-800 leading-snug" x-text="r.protocolo"></h4>
-                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800" x-text="formatarData(r.prazo_fatal)"></span>
+            <div class="space-y-2.5 max-h-[400px] overflow-y-auto pr-1">
+              <template x-for="r in compromissosFiltradosLateral" :key="r.id">
+                <div class="p-3 bg-slate-50 hover:bg-slate-100 border rounded-xl transition space-y-1.5">
+                  <div class="flex justify-between items-start gap-1">
+                    <div>
+                      <span class="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase inline-block mb-0.5"
+                        :class="r.tipo_fiscalizacao === 'Visita in loco' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'"
+                        x-text="r.tipo_fiscalizacao"></span>
+                      <h4 class="font-bold text-xs text-slate-800 leading-snug" x-text="r.protocolo"></h4>
+                    </div>
+                    <div class="text-right">
+                      <span class="text-[11px] font-mono font-bold text-slate-800 bg-white border px-1.5 py-0.5 rounded shadow-sm inline-block" x-text="extrairHora(r.prazo_fatal) || 'Horário livre'"></span>
+                      <span class="text-[10px] text-slate-400 block mt-0.5" x-text="formatarData(r.prazo_fatal)"></span>
+                    </div>
                   </div>
-                  <p class="text-xs text-slate-600 line-clamp-2" x-text="r.descricao || 'Pauta não informada.'"></p>
+
+                  <p class="text-xs text-slate-600 line-clamp-2" x-text="r.descricao || 'Sem descrição detalhada.'"></p>
+
+                  <div class="flex justify-between items-center text-[11px] text-slate-500 pt-1.5 border-t border-slate-200">
+                    <span class="truncate max-w-[140px]"><i class="fa-solid fa-user-tie mr-1 text-slate-400"></i><span x-text="r.responsavel_atribuido || 'Equipe FISA'"></span></span>
+                    <div class="flex items-center gap-2">
+                      <button @click="editarCompromisso(r)" class="text-amber-700 hover:underline font-bold" title="Editar"><i class="fa-solid fa-pen-to-square"></i> Editar</button>
+                      <button @click="excluirDemanda(r.id, r.protocolo)" class="text-rose-600 hover:underline font-bold" title="Excluir"><i class="fa-regular fa-trash-can"></i> Excluir</button>
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+              <template x-if="compromissosFiltradosLateral.length === 0">
+                <div class="p-8 text-center text-slate-400 text-xs">
+                  <i class="fa-regular fa-calendar-xmark text-2xl mb-2 text-slate-300 block"></i>
+                  Nenhum compromisso agendado para este dia.
                 </div>
               </template>
             </div>
           </div>
 
-          <div class="pt-4 border-t mt-4">
-            <button @click="abrirModalReuniao(diaSelecionadoIso)" class="w-full py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm">
-              <i class="fa-solid fa-calendar-plus"></i> Marcar Nova Reunião
+          <div class="pt-4 border-t mt-4 flex gap-2">
+            <button @click="abrirModalReuniao(diaSelecionadoIso)" class="flex-1 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm">
+              <i class="fa-solid fa-calendar-plus"></i> Nova Reunião
+            </button>
+            <button @click="abrirModalNovaVisita('', diaSelecionadoIso)" class="flex-1 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm">
+              <i class="fa-solid fa-location-dot"></i> Nova Visita
             </button>
           </div>
         </div>
@@ -488,7 +526,7 @@
       </div>
     </div>
 
-    <!-- MODAL: REGISTRAR VISITA IN LOCO -->
+    <!-- MODAL: REGISTRAR / EDITAR VISITA IN LOCO (COM CAMPO DE HORÁRIO) -->
     <div x-show="abrirModalVisita" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
       <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto" @click.away="abrirModalVisita = false">
         
@@ -496,18 +534,23 @@
           <span class="p-1.5 bg-amber-100 text-amber-800 rounded-lg text-sm">
             <i class="fa-solid fa-location-dot"></i>
           </span>
-          Registrar Visita / Fiscalização in loco
+          <span x-text="editandoCompromissoId ? 'Editar Visita in loco' : 'Registrar Visita / Fiscalização in loco'"></span>
         </h3>
 
         <form @submit.prevent="salvarVisitaInLoco" class="space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Identificação / Protocolo *</label>
+            <input type="text" x-model="formVisita.protocolo" required class="w-full border rounded px-3 py-1.5 text-sm" placeholder="Ex: VISTORIA-2026/01">
+          </div>
+
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Identificação / Protocolo *</label>
-              <input type="text" x-model="formVisita.protocolo" required class="w-full border rounded px-3 py-1.5 text-sm" placeholder="Ex: VISTORIA-2026/01">
+              <label class="block text-xs font-medium text-slate-600 mb-1">Data da Inspeção *</label>
+              <input type="date" x-model="formVisita.data_apenas" required class="w-full border rounded px-3 py-1.5 text-sm bg-white">
             </div>
             <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Data da Inspeção *</label>
-              <input type="date" x-model="formVisita.prazo_fatal" required class="w-full border rounded px-3 py-1.5 text-sm bg-white">
+              <label class="block text-xs font-medium text-slate-600 mb-1">Horário Previsto / Realizado</label>
+              <input type="time" x-model="formVisita.hora_apenas" class="w-full border rounded px-3 py-1.5 text-sm bg-white font-mono">
             </div>
           </div>
 
@@ -555,7 +598,72 @@
           <div class="flex justify-end gap-2 pt-4 border-t">
             <button type="button" @click="abrirModalVisita = false" class="px-4 py-2 border rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
             <button type="submit" :disabled="salvando" class="px-4 py-2 bg-amber-700 text-white rounded-lg text-xs font-bold hover:bg-amber-600 flex items-center shadow">
-              <span x-show="!salvando"><i class="fa-solid fa-check mr-1.5"></i> Salvar Visita in loco</span>
+              <span x-show="!salvando" x-text="editandoCompromissoId ? 'Atualizar Visita' : 'Salvar Visita in loco'"></span>
+              <span x-show="salvando"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL: AGENDAR / EDITAR REUNIÃO (COM CAMPO DE HORÁRIO) -->
+    <div x-show="abrirModalNovaReuniao" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
+      <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto" @click.away="abrirModalNovaReuniao = false">
+        <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
+          <span class="p-1.5 bg-emerald-100 text-emerald-800 rounded-lg text-sm"><i class="fa-solid fa-calendar-plus"></i></span>
+          <span x-text="editandoCompromissoId ? 'Editar Reunião / Alinhamento' : 'Agendar Reunião / Alinhamento'"></span>
+        </h3>
+
+        <form @submit.prevent="salvarReuniao" class="space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Título / Pauta da Reunião *</label>
+            <input type="text" x-model="formReuniao.protocolo" required placeholder="Ex: Alinhamento com Direção da UPA sobre escalas" class="w-full border rounded px-3 py-1.5 text-sm">
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Data da Reunião *</label>
+              <input type="date" x-model="formReuniao.data_apenas" required class="w-full border rounded px-3 py-1.5 text-sm bg-white">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Horário Marcado</label>
+              <input type="time" x-model="formReuniao.hora_apenas" class="w-full border rounded px-3 py-1.5 text-sm bg-white font-mono">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Unidade Vinculada</label>
+              <select x-model="formReuniao.unidade_id" class="w-full border rounded px-3 py-1.5 text-sm bg-white">
+                <option value="">Geral / Sede da Subsecretaria</option>
+                <template x-for="u in unidades" :key="u.id">
+                  <option :value="u.id" x-text="u.nome_fantasia"></option>
+                </template>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Esfera Envolvida</label>
+              <select x-model="formReuniao.esfera_gestao" class="w-full border rounded px-3 py-1.5 text-sm bg-white font-medium">
+                <option value="Administração Municipal (Direta)">Administração Municipal (Direta)</option>
+                <option value="Organização Social (OS)">Organização Social (OS)</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Responsável / Condutor</label>
+            <input type="text" x-model="formReuniao.responsavel_atribuido" placeholder="Ex: Rafael Reis" class="w-full border rounded px-3 py-1.5 text-sm">
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Pauta Detalhada / Participantes</label>
+            <textarea x-model="formReuniao.descricao" rows="3" placeholder="Ex: Pauta: Contratos de gestão e metas..." class="w-full border rounded px-3 py-1.5 text-sm"></textarea>
+          </div>
+
+          <div class="flex justify-end gap-2 pt-4 border-t">
+            <button type="button" @click="abrirModalNovaReuniao = false" class="px-4 py-2 border rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
+            <button type="submit" :disabled="salvando" class="px-4 py-2 bg-emerald-700 text-white rounded-lg text-xs font-bold hover:bg-emerald-600 flex items-center shadow">
+              <span x-show="!salvando" x-text="editandoCompromissoId ? 'Atualizar Reunião' : 'Confirmar Agendamento'"></span>
               <span x-show="salvando"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...</span>
             </button>
           </div>
@@ -732,7 +840,7 @@
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" x-if="demandaVisualizada">
             <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
               <span class="text-xs text-slate-500 block mb-0.5 font-medium">Data Agendada / Prazo</span>
-              <span class="font-semibold font-mono text-xs" x-text="formatarData(demandaVisualizada.prazo_fatal)"></span>
+              <span class="font-semibold font-mono text-xs" x-text="formatarDataComHora(demandaVisualizada.prazo_fatal)"></span>
             </div>
             <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
               <span class="text-xs text-slate-500 block mb-0.5 font-medium">Responsável / Auditor</span>
@@ -773,66 +881,6 @@
             Fechar
           </button>
         </div>
-      </div>
-    </div>
-
-    <!-- MODAL: AGENDAR REUNIÃO -->
-    <div x-show="abrirModalNovaReuniao" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
-      <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-slate-200" @click.away="abrirModalNovaReuniao = false">
-        <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
-          <span class="p-1.5 bg-emerald-100 text-emerald-800 rounded-lg text-sm"><i class="fa-solid fa-calendar-plus"></i></span>
-          Agendar Reunião / Alinhamento
-        </h3>
-
-        <form @submit.prevent="salvarReuniao" class="space-y-4">
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Título / Pauta da Reunião *</label>
-            <input type="text" x-model="formReuniao.protocolo" required placeholder="Ex: Alinhamento com Direção da UPA sobre escalas" class="w-full border rounded px-3 py-1.5 text-sm">
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Data da Reunião *</label>
-              <input type="date" x-model="formReuniao.prazo_fatal" required class="w-full border rounded px-3 py-1.5 text-sm">
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Esfera Envolvida</label>
-              <select x-model="formReuniao.esfera_gestao" class="w-full border rounded px-3 py-1.5 text-sm bg-white font-medium">
-                <option value="Administração Municipal (Direta)">Administração Municipal (Direta)</option>
-                <option value="Organização Social (OS)">Organização Social (OS)</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Unidade Vinculada</label>
-              <select x-model="formReuniao.unidade_id" class="w-full border rounded px-3 py-1.5 text-sm bg-white">
-                <option value="">Geral / Sede da Subsecretaria</option>
-                <template x-for="u in unidades" :key="u.id">
-                  <option :value="u.id" x-text="u.nome_fantasia"></option>
-                </template>
-              </select>
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Responsável / Condutor</label>
-              <input type="text" x-model="formReuniao.responsavel_atribuido" placeholder="Ex: Rafael Reis" class="w-full border rounded px-3 py-1.5 text-sm">
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Pauta Detalhada / Participantes</label>
-            <textarea x-model="formReuniao.descricao" rows="3" placeholder="Ex: Pauta: Contratos de gestão e metas..." class="w-full border rounded px-3 py-1.5 text-sm"></textarea>
-          </div>
-
-          <div class="flex justify-end gap-2 pt-4 border-t">
-            <button type="button" @click="abrirModalNovaReuniao = false" class="px-4 py-2 border rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
-            <button type="submit" :disabled="salvando" class="px-4 py-2 bg-emerald-700 text-white rounded-lg text-xs font-bold hover:bg-emerald-600 flex items-center shadow">
-              <span x-show="!salvando">Confirmar Agendamento</span>
-              <span x-show="salvando"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Agendando...</span>
-            </button>
-          </div>
-        </form>
       </div>
     </div>
 
@@ -978,12 +1026,15 @@
                 <div class="p-3 bg-white border border-amber-200 rounded-lg shadow-sm text-xs space-y-1">
                   <div class="flex justify-between items-center">
                     <span class="font-bold text-slate-900" x-text="v.protocolo"></span>
-                    <span class="font-mono text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded" x-text="formatarData(v.prazo_fatal)"></span>
+                    <span class="font-mono text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded" x-text="formatarDataComHora(v.prazo_fatal)"></span>
                   </div>
                   <p class="text-slate-700 leading-relaxed font-sans" x-text="v.descricao"></p>
                   <div class="text-[11px] text-slate-400 pt-1 flex justify-between border-t border-slate-100">
                     <span>Fiscal/Auditor: <strong class="text-slate-600" x-text="v.responsavel_atribuido || 'Equipe FISA'"></strong></span>
-                    <span x-text="'Risco apurado: ' + v.grau_risco"></span>
+                    <div class="flex gap-2">
+                      <button @click="modalDossieUnidade = false; editarCompromisso(v)" class="text-amber-700 hover:underline font-bold">Editar</button>
+                      <button @click="excluirDemanda(v.id, v.protocolo)" class="text-rose-600 hover:underline font-bold">Excluir</button>
+                    </div>
                   </div>
                 </div>
               </template>
@@ -1015,7 +1066,7 @@
                   </div>
                   <div class="text-right whitespace-nowrap">
                     <span class="text-[11px] font-semibold" :class="d.status === 'Concluída' ? 'text-emerald-700' : 'text-amber-700'" x-text="d.status"></span>
-                    <span class="text-[10px] text-slate-400 block" x-text="formatarData(d.prazo_fatal)"></span>
+                    <span class="text-[10px] text-slate-400 block" x-text="formatarDataComHora(d.prazo_fatal)"></span>
                   </div>
                 </div>
               </template>
@@ -1136,8 +1187,8 @@
 
       <div style="display: flex; gap: 12px; margin-bottom: 10px;">
         <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
-          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Prazo Fatal / Limite</span>
-          <strong style="font-family: monospace;" x-text="formatarData(demandaVisualizada?.prazo_fatal)"></strong>
+          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Data e Horário</span>
+          <strong style="font-family: monospace;" x-text="formatarDataComHora(demandaVisualizada?.prazo_fatal)"></strong>
         </div>
         <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
           <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Responsável / Auditor</span>
@@ -1159,7 +1210,7 @@
     </div>
   </div>
 
-  <!-- 2. FOLHA EXCLUSIVA: DOSSIÊ TÉCNICO DA UNIDADE DE SAÚDE (RAIO-X COMPLETO) -->
+  <!-- 2. FOLHA EXCLUSIVA: DOSSIÊ TÉCNICO DA UNIDADE DE SAÚDE -->
   <div id="folha-impressao-dossie" class="area-papel-impressao" x-show="unidadeDossie">
     <div style="border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px; text-align: center;">
       <h1 style="font-size: 15px; font-weight: bold; text-transform: uppercase; margin: 0; color: #0f172a;">Prefeitura Municipal &bull; Secretaria de Saúde</h1>
@@ -1204,7 +1255,7 @@
           <div style="border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; margin-bottom: 6px;">
             <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px; margin-bottom: 4px;">
               <span x-text="v.protocolo"></span>
-              <span style="font-family: monospace; color: #b45309;" x-text="formatarData(v.prazo_fatal)"></span>
+              <span style="font-family: monospace; color: #b45309;" x-text="formatarDataComHora(v.prazo_fatal)"></span>
             </div>
             <p style="margin: 0; font-size: 10.5px; color: #334155; line-height: 1.4;" x-text="v.descricao"></p>
             <div style="font-size: 9.5px; color: #64748b; margin-top: 4px; border-top: 1px dashed #e2e8f0; padding-top: 3px;">
@@ -1212,9 +1263,6 @@
               <span style="margin-left: 12px;" x-text="'Risco apurado: ' + v.grau_risco"></span>
             </div>
           </div>
-        </template>
-        <template x-if="visitasInLocoDaUnidadeDossie.length === 0">
-          <p style="font-size: 10px; color: #94a3b8; font-style: italic; margin: 4px 0;">Nenhuma visita in loco registrada para esta unidade.</p>
         </template>
       </div>
 
@@ -1226,7 +1274,7 @@
           <div style="border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; margin-bottom: 6px;">
             <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px; margin-bottom: 3px;">
               <span x-text="d.protocolo + ' (' + d.tipo_fiscalizacao + ')'"></span>
-              <span style="font-size: 10px; color: #475569;" x-text="d.status + ' &bull; Prazo: ' + formatarData(d.prazo_fatal)"></span>
+              <span style="font-size: 10px; color: #475569;" x-text="d.status + ' &bull; Data: ' + formatarDataComHora(d.prazo_fatal)"></span>
             </div>
             <p style="margin: 0; font-size: 10.5px; color: #334155; line-height: 1.4;" x-text="d.descricao"></p>
           </div>
@@ -1302,15 +1350,16 @@
         abaAtiva: 'fiscalizacoes',
         abrirModal: false,
         abrirModalNovaReuniao: false,
-        abrirModalNovaVisita: false,
+        abrirModalVisita: false,
         abrirModalUnidade: false,
         modalVisualizar: false,
         modalRelatorioMensal: false,
         modalDossieUnidade: false,
         
-        modoImpressao: '', // 'demanda' | 'dossie' | 'relatorio'
+        modoImpressao: '',
 
         editandoId: null,
+        editandoCompromissoId: null, // Controla edição no calendário / visitas
         demandaVisualizada: null,
         unidadeDossie: null,
 
@@ -1356,6 +1405,8 @@
           esfera_gestao: 'Administração Municipal (Direta)',
           tipo_fiscalizacao: 'Visita in loco',
           grau_risco: 'Médio',
+          data_apenas: '',
+          hora_apenas: '09:00',
           prazo_fatal: '',
           descricao: '',
           responsavel_atribuido: ''
@@ -1368,6 +1419,8 @@
           esfera_gestao: 'Administração Municipal (Direta)',
           tipo_fiscalizacao: 'Reunião',
           grau_risco: 'Baixo',
+          data_apenas: '',
+          hora_apenas: '14:00',
           prazo_fatal: '',
           descricao: '',
           responsavel_atribuido: ''
@@ -1435,7 +1488,207 @@
           }
         },
 
-        // --- CONTROLE DE IMPRESSÃO INDIVIDUAL ---
+        // --- MANIPULAÇÃO DE HORÁRIOS ---
+        montarDataIso(dataStr, horaStr) {
+          if (!dataStr) return null;
+          const hora = (horaStr && horaStr.trim() !== '') ? horaStr.trim() : '09:00';
+          return `${dataStr}T${hora}:00`;
+        },
+
+        extrairHora(dataIso) {
+          if (!dataIso || !dataIso.includes('T')) return '';
+          return dataIso.split('T')[1].substring(0, 5);
+        },
+
+        formatarDataComHora(dataIso) {
+          if (!dataIso) return '-';
+          const [dataParte, horaParte] = dataIso.split('T');
+          const [ano, mes, dia] = dataParte.substring(0, 10).split('-');
+          const horaFormatada = horaParte ? ` às ${horaParte.substring(0, 5)}` : '';
+          return `${dia}/${mes}/${ano}${horaFormatada}`;
+        },
+
+        // --- COMPROMISSOS (REUNIÕES E VISITAS) NO CALENDÁRIO ---
+        get compromissosCalendario() {
+          return this.demandas.filter(d => d.tipo_fiscalizacao === 'Reunião' || d.tipo_fiscalizacao === 'Visita in loco');
+        },
+
+        obterCompromissosDoDia(dataIso) {
+          if (!dataIso) return [];
+          return this.compromissosCalendario.filter(r => r.prazo_fatal && r.prazo_fatal.substring(0, 10) === dataIso);
+        },
+
+        get compromissosFiltradosLateral() {
+          if (this.diaSelecionadoIso) {
+            return this.obterCompromissosDoDia(this.diaSelecionadoIso);
+          }
+          return this.compromissosCalendario.slice(0, 8);
+        },
+
+        abrirModalReuniao(dataPrevia = null) {
+          this.editandoCompromissoId = null;
+          const dataInicial = dataPrevia || new Date().toISOString().substring(0, 10);
+          this.formReuniao = {
+            protocolo: '',
+            origem: 'Reunião de Alinhamento',
+            unidade_id: '',
+            esfera_gestao: 'Administração Municipal (Direta)',
+            tipo_fiscalizacao: 'Reunião',
+            grau_risco: 'Baixo',
+            data_apenas: dataInicial,
+            hora_apenas: '14:00',
+            prazo_fatal: '',
+            descricao: '',
+            responsavel_atribuido: 'Rafael Reis'
+          };
+          this.abrirModalNovaReuniao = true;
+        },
+
+        abrirModalNovaVisita(unidadeId = '', dataPrevia = null) {
+          this.editandoCompromissoId = null;
+          const dataInicial = dataPrevia || new Date().toISOString().substring(0, 10);
+          this.formVisita = {
+            protocolo: 'VISTORIA-' + new Date().getFullYear() + '/' + String(Math.floor(Math.random() * 900) + 100),
+            origem: 'Fiscalização in loco',
+            unidade_id: unidadeId || '',
+            esfera_gestao: 'Administração Municipal (Direta)',
+            tipo_fiscalizacao: 'Visita in loco',
+            grau_risco: 'Médio',
+            data_apenas: dataInicial,
+            hora_apenas: '09:30',
+            prazo_fatal: '',
+            descricao: '',
+            responsavel_atribuido: 'Auditor Rafael Reis'
+          };
+          this.abrirModalVisita = true;
+        },
+
+        editarCompromisso(c) {
+          this.editandoCompromissoId = c.id;
+          const dataParte = c.prazo_fatal ? c.prazo_fatal.substring(0, 10) : new Date().toISOString().substring(0, 10);
+          const horaParte = this.extrairHora(c.prazo_fatal) || '09:00';
+
+          if (c.tipo_fiscalizacao === 'Visita in loco') {
+            this.formVisita = {
+              protocolo: c.protocolo,
+              origem: c.origem || 'Fiscalização in loco',
+              unidade_id: c.unidade_id || '',
+              esfera_gestao: this.obterEsferaGestao(c),
+              tipo_fiscalizacao: 'Visita in loco',
+              grau_risco: c.grau_risco || 'Médio',
+              data_apenas: dataParte,
+              hora_apenas: horaParte,
+              descricao: c.descricao || '',
+              responsavel_atribuido: c.responsavel_atribuido || ''
+            };
+            this.abrirModalVisita = true;
+          } else {
+            this.formReuniao = {
+              protocolo: c.protocolo,
+              origem: c.origem || 'Reunião de Alinhamento',
+              unidade_id: c.unidade_id || '',
+              esfera_gestao: this.obterEsferaGestao(c),
+              tipo_fiscalizacao: 'Reunião',
+              grau_risco: c.grau_risco || 'Baixo',
+              data_apenas: dataParte,
+              hora_apenas: horaParte,
+              descricao: c.descricao || '',
+              responsavel_atribuido: c.responsavel_atribuido || ''
+            };
+            this.abrirModalNovaReuniao = true;
+          }
+        },
+
+        async salvarReuniao() {
+          this.salvando = true;
+          try {
+            const dataFinalIso = this.montarDataIso(this.formReuniao.data_apenas, this.formReuniao.hora_apenas);
+            const payload = {
+              protocolo: this.formReuniao.protocolo,
+              origem: this.formReuniao.origem,
+              unidade_id: this.formReuniao.unidade_id || null,
+              esfera_gestao: this.formReuniao.esfera_gestao,
+              tipo_fiscalizacao: 'Reunião',
+              grau_risco: this.formReuniao.grau_risco,
+              prazo_fatal: dataFinalIso,
+              descricao: this.formReuniao.descricao,
+              responsavel_atribuido: this.formReuniao.responsavel_atribuido
+            };
+
+            const url = this.editandoCompromissoId 
+              ? `${API_URL}/api/demandas/${this.editandoCompromissoId}` 
+              : `${API_URL}/api/demandas`;
+            
+            const metodo = this.editandoCompromissoId ? 'PUT' : 'POST';
+
+            const res = await fetch(url, {
+              method: metodo,
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) {
+              const erroJson = await res.json().catch(() => ({}));
+              throw new Error(erroJson.error || 'Falha ao salvar reunião.');
+            }
+
+            this.abrirModalNovaReuniao = false;
+            this.editandoCompromissoId = null;
+            await this.carregarDemandas();
+            this.mostrarToast(`Reunião "${payload.protocolo}" salva com sucesso!`);
+          } catch (err) {
+            this.mostrarToast(err.message, 'erro');
+          } finally {
+            this.salvando = false;
+          }
+        },
+
+        async salvarVisitaInLoco() {
+          this.salvando = true;
+          try {
+            const dataFinalIso = this.montarDataIso(this.formVisita.data_apenas, this.formVisita.hora_apenas);
+            const payload = {
+              protocolo: this.formVisita.protocolo,
+              origem: this.formVisita.origem,
+              unidade_id: this.formVisita.unidade_id || null,
+              esfera_gestao: this.formVisita.esfera_gestao,
+              tipo_fiscalizacao: 'Visita in loco',
+              grau_risco: this.formVisita.grau_risco,
+              prazo_fatal: dataFinalIso,
+              descricao: this.formVisita.descricao,
+              responsavel_atribuido: this.formVisita.responsavel_atribuido,
+              status: 'Concluída'
+            };
+
+            const url = this.editandoCompromissoId 
+              ? `${API_URL}/api/demandas/${this.editandoCompromissoId}` 
+              : `${API_URL}/api/demandas`;
+            
+            const metodo = this.editandoCompromissoId ? 'PUT' : 'POST';
+
+            const res = await fetch(url, {
+              method: metodo,
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) {
+              const erroJson = await res.json().catch(() => ({}));
+              throw new Error(erroJson.error || 'Falha ao salvar visita.');
+            }
+
+            this.abrirModalVisita = false;
+            this.editandoCompromissoId = null;
+            await this.carregarDemandas();
+            this.mostrarToast(`Visita in loco "${payload.protocolo}" salva com sucesso!`);
+          } catch (err) {
+            this.mostrarToast(err.message, 'erro');
+          } finally {
+            this.salvando = false;
+          }
+        },
+
+        // --- IMPRESSÃO ---
         imprimirFicha() {
           if (!this.demandaVisualizada) return;
           this.modoImpressao = 'demanda';
@@ -1462,50 +1715,6 @@
           }, 100);
         },
 
-        // --- MÓDULO VISITAS IN LOCO ---
-        abrirModalNovaVisita(unidadeId = '') {
-          const hojeIso = new Date().toISOString().substring(0, 10);
-          this.formVisita = {
-            protocolo: 'VISTORIA-' + new Date().getFullYear() + '/' + String(Math.floor(Math.random() * 900) + 100),
-            origem: 'Fiscalização in loco',
-            unidade_id: unidadeId || '',
-            esfera_gestao: 'Administração Municipal (Direta)',
-            tipo_fiscalizacao: 'Visita in loco',
-            grau_risco: 'Médio',
-            prazo_fatal: hojeIso,
-            descricao: '',
-            responsavel_atribuido: 'Auditor Rafael Reis'
-          };
-          this.abrirModalVisita = true;
-        },
-
-        async salvarVisitaInLoco() {
-          this.salvando = true;
-          try {
-            const payload = {
-              ...this.formVisita,
-              unidade_id: this.formVisita.unidade_id || null,
-              status: 'Concluída'
-            };
-
-            const res = await fetch(`${API_URL}/api/demandas`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
-            });
-
-            if (!res.ok) throw new Error('Falha ao registrar vistoria.');
-
-            this.abrirModalVisita = false;
-            await this.carregarDemandas();
-            this.mostrarToast(`Visita in loco "${payload.protocolo}" registrada!`);
-          } catch (err) {
-            this.mostrarToast(err.message, 'erro');
-          } finally {
-            this.salvando = false;
-          }
-        },
-
         contarVisitasPorUnidade(unidadeId) {
           return this.demandas.filter(d => d.unidade_id === unidadeId && d.tipo_fiscalizacao === 'Visita in loco').length;
         },
@@ -1522,7 +1731,6 @@
           );
         },
 
-        // --- DOSSIÊ DA UNIDADE ---
         abrirDossieUnidade(u) {
           this.unidadeDossie = u;
           this.modalDossieUnidade = true;
@@ -1544,7 +1752,6 @@
           );
         },
 
-        // --- FLUXO DE TRABALHO & AUDITORES ---
         get fluxoPorAuditor() {
           const mapa = {};
           this.demandasApenasFiscalizacao.forEach(d => {
@@ -1834,63 +2041,6 @@
           return dias;
         },
 
-        get reunioes() {
-          return this.demandas.filter(d => d.tipo_fiscalizacao === 'Reunião');
-        },
-
-        obterReunioesDoDia(dataIso) {
-          if (!dataIso) return [];
-          return this.reunioes.filter(r => r.prazo_fatal && r.prazo_fatal.substring(0, 10) === dataIso);
-        },
-
-        get reunioesFiltradasLateral() {
-          if (this.diaSelecionadoIso) {
-            return this.obterReunioesDoDia(this.diaSelecionadoIso);
-          }
-          return this.reunioes.slice(0, 8);
-        },
-
-        abrirModalReuniao(dataPrevia = null) {
-          this.formReuniao = {
-            protocolo: '',
-            origem: 'Reunião de Alinhamento',
-            unidade_id: '',
-            esfera_gestao: 'Administração Municipal (Direta)',
-            tipo_fiscalizacao: 'Reunião',
-            grau_risco: 'Baixo',
-            prazo_fatal: dataPrevia || new Date().toISOString().substring(0, 10),
-            descricao: '',
-            responsavel_atribuido: ''
-          };
-          this.abrirModalNovaReuniao = true;
-        },
-
-        async salvarReuniao() {
-          this.salvando = true;
-          try {
-            const payload = {
-              ...this.formReuniao,
-              unidade_id: this.formReuniao.unidade_id || null
-            };
-
-            const res = await fetch(`${API_URL}/api/demandas`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
-            });
-
-            if (!res.ok) throw new Error('Falha ao agendar reunião.');
-
-            this.abrirModalNovaReuniao = false;
-            await this.carregarDemandas();
-            this.mostrarToast(`Reunião "${payload.protocolo}" agendada!`);
-          } catch (err) {
-            this.mostrarToast(err.message, 'erro');
-          } finally {
-            this.salvando = false;
-          }
-        },
-
         abrirModalNovaUnidade() {
           this.formUnidade = { nome_fantasia: '', tipo_unidade: 'Atenção Básica (ESF/UBS)' };
           this.abrirModalUnidade = true;
@@ -1984,7 +2134,7 @@
             return;
           }
 
-          const cabecalho = ['Protocolo', 'Origem', 'Unidade Alvo', 'Esfera Gestao', 'Eixo', 'Risco', 'Prazo Fatal', 'Status', 'Responsavel'];
+          const cabecalho = ['Protocolo', 'Origem', 'Unidade Alvo', 'Esfera Gestao', 'Eixo', 'Risco', 'Data / Prazo', 'Status', 'Responsavel'];
           const linhas = this.demandasFiltradas.map(d => [
             `"${d.protocolo || ''}"`,
             `"${d.origem || ''}"`,
@@ -1992,7 +2142,7 @@
             `"${this.obterEsferaGestao(d)}"`,
             `"${d.tipo_fiscalizacao || ''}"`,
             `"${d.grau_risco || ''}"`,
-            `"${this.formatarData(d.prazo_fatal)}"`,
+            `"${this.formatarDataComHora(d.prazo_fatal)}"`,
             `"${d.status || ''}"`,
             `"${d.responsavel_atribuido || ''}"`
           ]);
