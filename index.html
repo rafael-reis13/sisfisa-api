@@ -4,6 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SIS-FISA | Subsecretaria de Fiscalização e Avaliação da Saúde</title>
+  
+  <!-- Configurações PWA (Aplicativo) -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#082f49">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SIS-FISA">
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2966/2966327.png">
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -1359,7 +1368,7 @@
         modoImpressao: '',
 
         editandoId: null,
-        editandoCompromissoId: null, // Controla edição no calendário / visitas
+        editandoCompromissoId: null,
         demandaVisualizada: null,
         unidadeDossie: null,
 
@@ -1488,7 +1497,6 @@
           }
         },
 
-        // --- MANIPULAÇÃO DE HORÁRIOS ---
         montarDataIso(dataStr, horaStr) {
           if (!dataStr) return null;
           const hora = (horaStr && horaStr.trim() !== '') ? horaStr.trim() : '09:00';
@@ -1508,7 +1516,6 @@
           return `${dia}/${mes}/${ano}${horaFormatada}`;
         },
 
-        // --- COMPROMISSOS (REUNIÕES E VISITAS) NO CALENDÁRIO ---
         get compromissosCalendario() {
           return this.demandas.filter(d => d.tipo_fiscalizacao === 'Reunião' || d.tipo_fiscalizacao === 'Visita in loco');
         },
@@ -1688,7 +1695,6 @@
           }
         },
 
-        // --- IMPRESSÃO ---
         imprimirFicha() {
           if (!this.demandaVisualizada) return;
           this.modoImpressao = 'demanda';
@@ -2250,6 +2256,15 @@
           }
         }
       }
+    }
+  </script>
+
+  <!-- Registro do Service Worker (PWA) -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW:', err));
+      });
     }
   </script>
 </body>
