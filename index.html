@@ -152,7 +152,7 @@
     <!-- ==================== ABA 1: FISCALIZAÇÕES ==================== -->
     <div x-show="abaAtiva === 'fiscalizacoes'" x-cloak>
       
-      <!-- Matriz de Risco / Alerta Prioritário (Não inclui demandas arquivadas) -->
+      <!-- Matriz de Risco / Alerta Prioritário -->
       <div x-show="alertasPrioritarios.length > 0" class="mb-8 p-4 bg-rose-50 border-l-4 border-rose-600 rounded-xl shadow-sm">
         <div class="flex items-center justify-between mb-3">
           <div class="flex items-center gap-2">
@@ -219,7 +219,7 @@
               <button @click="filtroRapido = 'os'" :class="filtroRapido === 'os' ? 'bg-purple-800 text-white' : 'bg-slate-100 text-purple-700 hover:bg-purple-50'" class="px-3 py-1.5 rounded-lg transition">Só O.S.</button>
               <button @click="filtroRapido = 'municipio'" :class="filtroRapido === 'municipio' ? 'bg-sky-700 text-white' : 'bg-slate-100 text-sky-700 hover:bg-sky-50'" class="px-3 py-1.5 rounded-lg transition">Só Município</button>
               
-              <!-- NOVO FILTRO: ARQUIVADAS -->
+              <!-- FILTRO: ARQUIVADAS -->
               <button @click="filtroRapido = 'arquivadas'" :class="filtroRapido === 'arquivadas' ? 'bg-slate-700 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'" class="px-3 py-1.5 rounded-lg transition flex items-center gap-1">
                 <i class="fa-solid fa-box-archive"></i> Arquivadas (<span x-text="demandasArquivadas.length"></span>)
               </button>
@@ -242,7 +242,7 @@
                 <th class="p-4">Tipo / Eixo</th>
                 <th class="p-4">Responsável</th>
                 <th class="p-4">Data e Horário</th>
-                <th class="p-4">Status</th>
+                <th class="p-4">Situação</th>
                 <th class="p-4 text-center">Ações</th>
               </tr>
             </thead>
@@ -296,13 +296,21 @@
                       <button @click="visualizarDemanda(d)" class="text-slate-700 hover:text-sky-700 text-xs font-semibold px-2 py-1 border border-slate-300 rounded hover:bg-slate-100 transition" title="Detalhes e Despachos">
                         <i class="fa-regular fa-eye"></i>
                       </button>
+
+                      <!-- BOTÃO MUDAR STATUS RESTAURADO -->
+                      <button 
+                        @click="avancarStatus(d)" 
+                        class="text-xs font-semibold px-2 py-1 border border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-600 hover:text-white rounded transition flex items-center gap-1" 
+                        title="Avançar situação: Triagem ➔ Em andamento ➔ Concluída">
+                        <i class="fa-solid fa-arrows-rotate text-[10px]"></i> Mudar
+                      </button>
                       
                       <!-- BOTÃO ARQUIVAR / DESARQUIVAR -->
                       <button 
                         @click="alternarArquivamento(d)" 
                         class="text-xs font-semibold px-2 py-1 border rounded transition flex items-center gap-1"
-                        :class="d.status === 'Arquivada' ? 'bg-sky-50 text-sky-800 border-sky-300 hover:bg-sky-100' : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'"
-                        :title="d.status === 'Arquivada' ? 'Desarquivar processo' : 'Arquivar processo'">
+                        :class="d.status === 'Arquivada' ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100' : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'"
+                        :title="d.status === 'Arquivada' ? 'Desarquivar e reativar processo' : 'Arquivar processo'">
                         <i class="fa-solid" :class="d.status === 'Arquivada' ? 'fa-box-open' : 'fa-box-archive'"></i>
                         <span x-text="d.status === 'Arquivada' ? 'Reativar' : 'Arquivar'"></span>
                       </button>
@@ -698,7 +706,7 @@
       </div>
     </div>
 
-    <!-- MODAL DE CADASTRO OU EDIÇÃO DE DEMANDA GERAL -->
+    <!-- MODAL DE CADASTRO OU EDIÇÃO DE DEMANDA (COM SELETOR DE STATUS) -->
     <div x-show="abrirModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
       <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto" @click.away="abrirModal = false">
         
@@ -706,7 +714,7 @@
           <span class="p-1.5 bg-sky-100 text-sky-800 rounded-lg text-sm">
             <i class="fa-solid" :class="editandoId ? 'fa-pen-to-square' : 'fa-plus'"></i>
           </span>
-          <span x-text="editandoId ? 'Editar Demanda & Responsável' : 'Cadastrar Demanda de Fiscalização'"></span>
+          <span x-text="editandoId ? 'Editar Demanda & Situação' : 'Cadastrar Demanda de Fiscalização'"></span>
         </h3>
 
         <form @submit.prevent="salvarDemanda" class="space-y-4">
@@ -751,6 +759,17 @@
                 <option value="Organização Social (OS)">Organização Social (OS)</option>
               </select>
             </div>
+          </div>
+
+          <!-- SELETOR DIRETO DE SITUAÇÃO / STATUS NA EDIÇÃO -->
+          <div class="bg-sky-50 border border-sky-200 p-2.5 rounded-lg">
+            <label class="block text-xs font-bold text-sky-950 mb-1">Situação da Demanda *</label>
+            <select x-model="formDemanda.status" class="w-full border rounded px-3 py-1.5 text-sm bg-white font-bold text-slate-800">
+              <option value="Triagem">Triagem (Aguardando análise)</option>
+              <option value="Em andamento">Em andamento (Fiscalização ativa)</option>
+              <option value="Concluída">Concluída (Finalizada)</option>
+              <option value="Arquivada">Arquivada (Histórico/Acervo)</option>
+            </select>
           </div>
 
           <div>
@@ -856,15 +875,20 @@
                 }"
                 x-text="demandaVisualizada.grau_risco"></span>
             </div>
-            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
-              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Status</span>
-              <span class="inline-block px-2 py-0.5 rounded text-xs font-bold"
-                :class="{
-                  'bg-slate-200 text-slate-800 border border-slate-300': demandaVisualizada.status === 'Arquivada',
-                  'bg-emerald-100 text-emerald-700': demandaVisualizada.status === 'Concluída',
-                  'bg-amber-100 text-amber-700': demandaVisualizada.status === 'Em andamento'
-                }"
-                x-text="demandaVisualizada.status"></span>
+            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 flex flex-col justify-between">
+              <div>
+                <span class="text-xs text-slate-500 block mb-0.5 font-medium">Situação</span>
+                <span class="inline-block px-2 py-0.5 rounded text-xs font-bold"
+                  :class="{
+                    'bg-slate-200 text-slate-800 border border-slate-300': demandaVisualizada.status === 'Arquivada',
+                    'bg-emerald-100 text-emerald-700': demandaVisualizada.status === 'Concluída',
+                    'bg-amber-100 text-amber-700': demandaVisualizada.status === 'Em andamento'
+                  }"
+                  x-text="demandaVisualizada.status"></span>
+              </div>
+              <button @click="avancarStatus(demandaVisualizada)" class="text-[11px] text-sky-700 hover:underline font-bold mt-1 text-left no-print">
+                <i class="fa-solid fa-arrows-rotate mr-0.5"></i> Mudar situação
+              </button>
             </div>
           </div>
 
@@ -901,7 +925,6 @@
 
         <div class="border-t pt-4 mt-3 flex justify-between items-center no-print">
           <div class="flex gap-2">
-            <!-- BOTÃO ARQUIVAR DENTRO DO MODAL -->
             <button 
               type="button" 
               @click="alternarArquivamento(demandaVisualizada)" 
@@ -1042,7 +1065,7 @@
             </div>
             <div class="p-3 bg-slate-50 border rounded-lg">
               <span class="text-[10px] text-slate-500 uppercase font-semibold block">Críticas / Alto Risco</span>
-              <span class="text-xl font-bold text-rose-700" x-text="demandasDaUnidadeDossie.filter(d => d.grau_risco === 'Crítico' || d.grau_risco === 'Alto').length"></span>
+              <span class="text-xl font-bold text-rose-700" x-text="demandasDaUnidadeDossie.filter(d => (d.grau_risco === 'Crítico' || d.grau_risco === 'Alto') && d.status !== 'Arquivada').length"></span>
             </div>
             <div class="p-3 bg-slate-50 border rounded-lg">
               <span class="text-[10px] text-slate-500 uppercase font-semibold block">Reuniões Realizadas</span>
@@ -1436,7 +1459,8 @@
           grau_risco: 'Médio',
           prazo_fatal: '',
           descricao: '',
-          responsavel_atribuido: 'Comissão de Auditoria'
+          responsavel_atribuido: 'Comissão de Auditoria',
+          status: 'Triagem'
         },
 
         formVisita: {
@@ -1548,7 +1572,29 @@
           return `${dia}/${mes}/${ano}${horaFormatada}`;
         },
 
-        // --- ARQUIVAR / DESARQUIVAR ---
+        // --- ALTERAÇÃO DIRETA DE SITUAÇÃO / STATUS ---
+        async avancarStatus(d) {
+          const proximoStatus = d.status === 'Triagem' 
+            ? 'Em andamento' 
+            : (d.status === 'Em andamento' ? 'Concluída' : 'Triagem');
+
+          try {
+            const res = await fetch(`${API_URL}/api/demandas/${d.id}/status`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: proximoStatus })
+            });
+
+            if (!res.ok) throw new Error();
+
+            d.status = proximoStatus;
+            this.mostrarToast(`Situação alterada para: ${proximoStatus}`);
+            if (this.abaAtiva === 'indicadores') this.atualizarGraficos();
+          } catch (err) {
+            this.mostrarToast('Não foi possível atualizar o status.', 'erro');
+          }
+        },
+
         async alternarArquivamento(d) {
           const novoStatus = d.status === 'Arquivada' ? 'Em andamento' : 'Arquivada';
           const acaoTexto = novoStatus === 'Arquivada' ? 'arquivado' : 'reativado';
@@ -1877,7 +1923,8 @@
             grau_risco: 'Médio',
             prazo_fatal: '',
             descricao: '',
-            responsavel_atribuido: 'Comissão de Auditoria'
+            responsavel_atribuido: 'Comissão de Auditoria',
+            status: 'Triagem'
           };
           this.abrirModal = true;
         },
@@ -1893,7 +1940,8 @@
             grau_risco: demanda.grau_risco || 'Médio',
             prazo_fatal: demanda.prazo_fatal ? demanda.prazo_fatal.substring(0, 10) : '',
             descricao: demanda.descricao || '',
-            responsavel_atribuido: demanda.responsavel_atribuido || 'Comissão de Auditoria'
+            responsavel_atribuido: demanda.responsavel_atribuido || 'Comissão de Auditoria',
+            status: demanda.status || 'Triagem'
           };
           this.abrirModal = true;
         },
@@ -1941,11 +1989,9 @@
         get demandasFiltradas() {
           let lista = this.demandasApenasFiscalizacao;
 
-          // Se o filtro for especificamente "arquivadas", mostra apenas as arquivadas
           if (this.filtroRapido === 'arquivadas') {
             lista = lista.filter(d => d.status === 'Arquivada');
           } else {
-            // Em todos os outros filtros operacionais normais, exclui as arquivadas para não poluir
             lista = lista.filter(d => d.status !== 'Arquivada');
 
             if (this.filtroRapido === 'visitas') {
@@ -2253,24 +2299,6 @@
             return 'Organização Social (OS)';
           }
           return 'Administração Municipal (Direta)';
-        },
-
-        async avancarStatus(d) {
-          const proximoStatus = d.status === 'Triagem' ? 'Em andamento' : (d.status === 'Em andamento' ? 'Concluída' : 'Triagem');
-          try {
-            const res = await fetch(`${API_URL}/api/demandas/${d.id}/status`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ status: proximoStatus })
-            });
-            if (res.ok) {
-              d.status = proximoStatus;
-              this.mostrarToast(`Status alterado para: ${proximoStatus}`);
-              if (this.abaAtiva === 'indicadores') this.atualizarGraficos();
-            }
-          } catch (err) {
-            this.mostrarToast('Não foi possível atualizar o status.', 'erro');
-          }
         },
 
         async excluirDemanda(id, protocolo) {
