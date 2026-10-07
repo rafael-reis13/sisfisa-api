@@ -1610,15 +1610,25 @@
           this.salvando = true;
           try {
             const dataFinalIso = this.montarDataIso(this.formReuniao.data_apenas, this.formReuniao.hora_apenas);
+            
+            // Tratamento contra o limite de 30 caracteres do banco
+            let protocoloFormatado = (this.formReuniao.protocolo || '').trim();
+            let descricaoFinal = this.formReuniao.descricao || '';
+
+            if (protocoloFormatado.length > 28) {
+              descricaoFinal = `[PAUTA: ${protocoloFormatado}]\n` + descricaoFinal;
+              protocoloFormatado = protocoloFormatado.slice(0, 25) + '...';
+            }
+
             const payload = {
-              protocolo: this.formReuniao.protocolo,
+              protocolo: protocoloFormatado,
               origem: this.formReuniao.origem,
               unidade_id: this.formReuniao.unidade_id || null,
               esfera_gestao: this.formReuniao.esfera_gestao,
               tipo_fiscalizacao: 'Reunião',
               grau_risco: this.formReuniao.grau_risco,
               prazo_fatal: dataFinalIso,
-              descricao: this.formReuniao.descricao,
+              descricao: descricaoFinal,
               responsavel_atribuido: this.formReuniao.responsavel_atribuido
             };
 
@@ -1642,8 +1652,9 @@
             this.abrirModalNovaReuniao = false;
             this.editandoCompromissoId = null;
             await this.carregarDemandas();
-            this.mostrarToast(`Reunião "${payload.protocolo}" salva com sucesso!`);
+            this.mostrarToast(`Reunião agendada com sucesso!`);
           } catch (err) {
+            console.error('Erro ao agendar reunião:', err);
             this.mostrarToast(err.message, 'erro');
           } finally {
             this.salvando = false;
@@ -1655,7 +1666,7 @@
           try {
             const dataFinalIso = this.montarDataIso(this.formVisita.data_apenas, this.formVisita.hora_apenas);
             const payload = {
-              protocolo: this.formVisita.protocolo,
+              protocolo: (this.formVisita.protocolo || '').trim().slice(0, 30),
               origem: this.formVisita.origem,
               unidade_id: this.formVisita.unidade_id || null,
               esfera_gestao: this.formVisita.esfera_gestao,
@@ -1695,6 +1706,7 @@
           }
         },
 
+        // --- IMPRESSÃO ---
         imprimirFicha() {
           if (!this.demandaVisualizada) return;
           this.modoImpressao = 'demanda';
