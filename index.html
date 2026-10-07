@@ -152,7 +152,7 @@
     <!-- ==================== ABA 1: FISCALIZAÇÕES ==================== -->
     <div x-show="abaAtiva === 'fiscalizacoes'" x-cloak>
       
-      <!-- Matriz de Risco / Alerta Prioritário -->
+      <!-- Matriz de Risco / Alerta Prioritário (Não inclui demandas arquivadas) -->
       <div x-show="alertasPrioritarios.length > 0" class="mb-8 p-4 bg-rose-50 border-l-4 border-rose-600 rounded-xl shadow-sm">
         <div class="flex items-center justify-between mb-3">
           <div class="flex items-center gap-2">
@@ -197,7 +197,7 @@
           <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
               <h2 class="font-bold text-lg text-slate-800">Mapa Operacional de Fiscalizações</h2>
-              <p class="text-xs text-slate-500">Monitoramento de prazos fatais, inspeções presenciais e conformidade hospitalar/ambulatorial</p>
+              <p class="text-xs text-slate-500">Monitoramento de prazos fatais, inspeções presenciais e arquivo histórico</p>
             </div>
             <button @click="exportarParaCSV()" class="bg-emerald-700 hover:bg-emerald-600 text-white px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 shadow-sm transition">
               <i class="fa-solid fa-file-excel text-sm"></i> Exportar Relatório (CSV)
@@ -207,7 +207,7 @@
           <!-- Filtros Rápidos (Tabs) -->
           <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
             <div class="flex flex-wrap gap-1.5 text-xs font-medium">
-              <button @click="filtroRapido = 'todos'" :class="filtroRapido === 'todos' ? 'bg-sky-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1.5 rounded-lg transition">Todos</button>
+              <button @click="filtroRapido = 'todos'" :class="filtroRapido === 'todos' ? 'bg-sky-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1.5 rounded-lg transition">Ativos</button>
               <button @click="filtroRapido = 'visitas'" :class="filtroRapido === 'visitas' ? 'bg-amber-600 text-white' : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'" class="px-3 py-1.5 rounded-lg transition flex items-center gap-1.5">
                 <i class="fa-solid fa-location-dot"></i> Visitas in loco (<span x-text="todasVisitasInLoco.length"></span>)
               </button>
@@ -218,6 +218,11 @@
               <button @click="filtroRapido = 'concluidas'" :class="filtroRapido === 'concluidas' ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1.5 rounded-lg transition">Concluídas</button>
               <button @click="filtroRapido = 'os'" :class="filtroRapido === 'os' ? 'bg-purple-800 text-white' : 'bg-slate-100 text-purple-700 hover:bg-purple-50'" class="px-3 py-1.5 rounded-lg transition">Só O.S.</button>
               <button @click="filtroRapido = 'municipio'" :class="filtroRapido === 'municipio' ? 'bg-sky-700 text-white' : 'bg-slate-100 text-sky-700 hover:bg-sky-50'" class="px-3 py-1.5 rounded-lg transition">Só Município</button>
+              
+              <!-- NOVO FILTRO: ARQUIVADAS -->
+              <button @click="filtroRapido = 'arquivadas'" :class="filtroRapido === 'arquivadas' ? 'bg-slate-700 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'" class="px-3 py-1.5 rounded-lg transition flex items-center gap-1">
+                <i class="fa-solid fa-box-archive"></i> Arquivadas (<span x-text="demandasArquivadas.length"></span>)
+              </button>
             </div>
 
             <div class="w-full sm:w-72 relative">
@@ -250,7 +255,7 @@
                 </tr>
               </template>
               <template x-for="d in demandasFiltradas" :key="d.id">
-                <tr class="hover:bg-slate-50 transition">
+                <tr class="hover:bg-slate-50 transition" :class="d.status === 'Arquivada' ? 'bg-slate-50/70 opacity-75' : ''">
                   <td class="p-4">
                     <div class="font-bold text-slate-800" x-text="d.protocolo"></div>
                     <span class="text-xs text-slate-500" x-text="d.origem"></span>
@@ -278,7 +283,12 @@
                   </td>
                   <td class="p-4">
                     <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
-                      :class="d.status === 'Concluída' ? 'bg-emerald-100 text-emerald-700' : (d.status === 'Em andamento' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700')"
+                      :class="{
+                        'bg-slate-200 text-slate-800 border border-slate-300': d.status === 'Arquivada',
+                        'bg-emerald-100 text-emerald-700': d.status === 'Concluída',
+                        'bg-amber-100 text-amber-700': d.status === 'Em andamento',
+                        'bg-blue-100 text-blue-700': d.status === 'Triagem'
+                      }"
                       x-text="d.status"></span>
                   </td>
                   <td class="p-4 text-center">
@@ -286,11 +296,19 @@
                       <button @click="visualizarDemanda(d)" class="text-slate-700 hover:text-sky-700 text-xs font-semibold px-2 py-1 border border-slate-300 rounded hover:bg-slate-100 transition" title="Detalhes e Despachos">
                         <i class="fa-regular fa-eye"></i>
                       </button>
+                      
+                      <!-- BOTÃO ARQUIVAR / DESARQUIVAR -->
+                      <button 
+                        @click="alternarArquivamento(d)" 
+                        class="text-xs font-semibold px-2 py-1 border rounded transition flex items-center gap-1"
+                        :class="d.status === 'Arquivada' ? 'bg-sky-50 text-sky-800 border-sky-300 hover:bg-sky-100' : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'"
+                        :title="d.status === 'Arquivada' ? 'Desarquivar processo' : 'Arquivar processo'">
+                        <i class="fa-solid" :class="d.status === 'Arquivada' ? 'fa-box-open' : 'fa-box-archive'"></i>
+                        <span x-text="d.status === 'Arquivada' ? 'Reativar' : 'Arquivar'"></span>
+                      </button>
+
                       <button @click="iniciarEdicao(d)" class="text-amber-700 hover:text-amber-900 text-xs font-semibold px-2 py-1 border border-amber-300 rounded hover:bg-amber-50 transition" title="Editar">
                         <i class="fa-solid fa-pen-to-square"></i>
-                      </button>
-                      <button @click="avancarStatus(d)" class="text-sky-600 hover:text-sky-800 text-xs font-semibold px-2 py-1 border border-sky-300 rounded hover:bg-sky-50 transition" title="Mudar Status">
-                        Mudar
                       </button>
                       <button @click="excluirDemanda(d.id, d.protocolo)" class="text-xs bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white border border-rose-200 px-2 py-1 rounded transition" title="Excluir">
                         <i class="fa-regular fa-trash-can"></i>
@@ -349,7 +367,7 @@
               </div>
 
               <div class="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                <template x-for="p in dados.processos.filter(x => x.status !== 'Concluída').slice(0, 4)" :key="p.id">
+                <template x-for="p in dados.processos.filter(x => x.status !== 'Concluída' && x.status !== 'Arquivada').slice(0, 4)" :key="p.id">
                   <div class="p-1.5 bg-slate-50 border rounded text-[11px] flex justify-between items-center hover:bg-slate-100 cursor-pointer" @click="iniciarEdicao(p)">
                     <span class="font-bold text-slate-700 truncate max-w-[170px]" x-text="p.protocolo"></span>
                     <span class="text-[10px] text-slate-400" x-text="formatarDataComHora(p.prazo_fatal)"></span>
@@ -467,7 +485,7 @@
           </div>
         </div>
 
-        <!-- Painel Lateral: Compromissos do Dia (com Horário, Editar e Excluir) -->
+        <!-- Painel Lateral: Compromissos do Dia -->
         <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex flex-col justify-between">
           <div>
             <div class="flex justify-between items-center mb-3 pb-2 border-b">
@@ -535,7 +553,7 @@
       </div>
     </div>
 
-    <!-- MODAL: REGISTRAR / EDITAR VISITA IN LOCO (COM CAMPO DE HORÁRIO) -->
+    <!-- MODAL: REGISTRAR / EDITAR VISITA IN LOCO -->
     <div x-show="abrirModalVisita" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
       <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto" @click.away="abrirModalVisita = false">
         
@@ -615,7 +633,7 @@
       </div>
     </div>
 
-    <!-- MODAL: AGENDAR / EDITAR REUNIÃO (COM CAMPO DE HORÁRIO) -->
+    <!-- MODAL: AGENDAR / EDITAR REUNIÃO -->
     <div x-show="abrirModalNovaReuniao" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
       <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto" @click.away="abrirModalNovaReuniao = false">
         <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
@@ -841,7 +859,11 @@
             <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
               <span class="text-xs text-slate-500 block mb-0.5 font-medium">Status</span>
               <span class="inline-block px-2 py-0.5 rounded text-xs font-bold"
-                :class="demandaVisualizada.status === 'Concluída' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'"
+                :class="{
+                  'bg-slate-200 text-slate-800 border border-slate-300': demandaVisualizada.status === 'Arquivada',
+                  'bg-emerald-100 text-emerald-700': demandaVisualizada.status === 'Concluída',
+                  'bg-amber-100 text-amber-700': demandaVisualizada.status === 'Em andamento'
+                }"
                 x-text="demandaVisualizada.status"></span>
             </div>
           </div>
@@ -879,6 +901,16 @@
 
         <div class="border-t pt-4 mt-3 flex justify-between items-center no-print">
           <div class="flex gap-2">
+            <!-- BOTÃO ARQUIVAR DENTRO DO MODAL -->
+            <button 
+              type="button" 
+              @click="alternarArquivamento(demandaVisualizada)" 
+              class="px-3 py-2 border rounded-lg text-xs font-semibold transition flex items-center gap-1.5"
+              :class="demandaVisualizada?.status === 'Arquivada' ? 'bg-sky-50 text-sky-800 border-sky-300' : 'bg-slate-100 text-slate-700 border-slate-300'">
+              <i class="fa-solid" :class="demandaVisualizada?.status === 'Arquivada' ? 'fa-box-open' : 'fa-box-archive'"></i>
+              <span x-text="demandaVisualizada?.status === 'Arquivada' ? 'Desarquivar' : 'Arquivar Demanda'"></span>
+            </button>
+
             <button type="button" @click="iniciarEdicao(demandaVisualizada); modalVisualizar = false;" class="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5">
               <i class="fa-solid fa-pen-to-square"></i> Editar Demanda
             </button>
@@ -1115,11 +1147,11 @@
             </div>
             <div class="p-3 bg-slate-50 border rounded-lg">
               <span class="text-[11px] text-slate-500 uppercase font-semibold block">Em Andamento</span>
-              <span class="text-xl font-bold text-amber-700" x-text="demandasApenasFiscalizacao.filter(d => d.status !== 'Concluída').length"></span>
+              <span class="text-xl font-bold text-amber-700" x-text="demandasApenasFiscalizacao.filter(d => d.status !== 'Concluída' && d.status !== 'Arquivada').length"></span>
             </div>
             <div class="p-3 bg-slate-50 border rounded-lg">
               <span class="text-[11px] text-slate-500 uppercase font-semibold block">Críticas</span>
-              <span class="text-xl font-bold text-rose-700" x-text="demandasApenasFiscalizacao.filter(d => d.grau_risco === 'Crítico' || d.grau_risco === 'Alto').length"></span>
+              <span class="text-xl font-bold text-rose-700" x-text="demandasApenasFiscalizacao.filter(d => (d.grau_risco === 'Crítico' || d.grau_risco === 'Alto') && d.status !== 'Arquivada').length"></span>
             </div>
           </div>
 
@@ -1248,7 +1280,7 @@
         </div>
         <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
           <span style="font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Processos Críticos</span>
-          <strong style="font-size: 14px; color: #e11d48;" x-text="demandasDaUnidadeDossie.filter(d => d.grau_risco === 'Crítico' || d.grau_risco === 'Alto').length"></strong>
+          <strong style="font-size: 14px; color: #e11d48;" x-text="demandasDaUnidadeDossie.filter(d => (d.grau_risco === 'Crítico' || d.grau_risco === 'Alto') && d.status !== 'Arquivada').length"></strong>
         </div>
         <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
           <span style="font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Reuniões Realizadas</span>
@@ -1319,11 +1351,11 @@
         </div>
         <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
           <span style="font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Em Andamento</span>
-          <strong style="font-size: 14px; color: #b45309;" x-text="demandasApenasFiscalizacao.filter(d => d.status !== 'Concluída').length"></strong>
+          <strong style="font-size: 14px; color: #b45309;" x-text="demandasApenasFiscalizacao.filter(d => d.status !== 'Concluída' && d.status !== 'Arquivada').length"></strong>
         </div>
         <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
           <span style="font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Críticas / Alto Risco</span>
-          <strong style="font-size: 14px; color: #e11d48;" x-text="demandasApenasFiscalizacao.filter(d => d.grau_risco === 'Crítico' || d.grau_risco === 'Alto').length"></strong>
+          <strong style="font-size: 14px; color: #e11d48;" x-text="demandasApenasFiscalizacao.filter(d => (d.grau_risco === 'Crítico' || d.grau_risco === 'Alto') && d.status !== 'Arquivada').length"></strong>
         </div>
       </div>
 
@@ -1331,7 +1363,7 @@
         <h3 style="font-size: 11px; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #94a3b8; padding-bottom: 4px; margin-bottom: 8px; color: #0f172a;">
           1. Demandas com Órgãos de Controle (MP / TCE / Ouvidoria)
         </h3>
-        <template x-for="d in demandasApenasFiscalizacao.filter(d => d.grau_risco === 'Crítico' || d.origem === 'Ministério Público' || d.origem === 'Tribunal de Contas').slice(0, 5)" :key="d.id">
+        <template x-for="d in demandasApenasFiscalizacao.filter(d => (d.grau_risco === 'Crítico' || d.origem === 'Ministério Público' || d.origem === 'Tribunal de Contas') && d.status !== 'Arquivada').slice(0, 5)" :key="d.id">
           <div style="border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; margin-bottom: 6px;">
             <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px; margin-bottom: 2px;">
               <span x-text="d.protocolo + ' &bull; ' + (d.unidade_nome || 'Geral') + ' (' + obterEsferaGestao(d) + ')'"></span>
@@ -1516,8 +1548,34 @@
           return `${dia}/${mes}/${ano}${horaFormatada}`;
         },
 
+        // --- ARQUIVAR / DESARQUIVAR ---
+        async alternarArquivamento(d) {
+          const novoStatus = d.status === 'Arquivada' ? 'Em andamento' : 'Arquivada';
+          const acaoTexto = novoStatus === 'Arquivada' ? 'arquivado' : 'reativado';
+
+          try {
+            const res = await fetch(`${API_URL}/api/demandas/${d.id}/status`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: novoStatus })
+            });
+
+            if (!res.ok) throw new Error('Não foi possível alterar o status no servidor.');
+
+            d.status = novoStatus;
+            this.mostrarToast(`Processo "${d.protocolo}" ${acaoTexto} com sucesso!`);
+            if (this.abaAtiva === 'indicadores') this.atualizarGraficos();
+          } catch (err) {
+            this.mostrarToast(err.message, 'erro');
+          }
+        },
+
+        get demandasArquivadas() {
+          return this.demandasApenasFiscalizacao.filter(d => d.status === 'Arquivada');
+        },
+
         get compromissosCalendario() {
-          return this.demandas.filter(d => d.tipo_fiscalizacao === 'Reunião' || d.tipo_fiscalizacao === 'Visita in loco');
+          return this.demandas.filter(d => (d.tipo_fiscalizacao === 'Reunião' || d.tipo_fiscalizacao === 'Visita in loco') && d.status !== 'Arquivada');
         },
 
         obterCompromissosDoDia(dataIso) {
@@ -1652,7 +1710,7 @@
             this.abrirModalNovaReuniao = false;
             this.editandoCompromissoId = null;
             await this.carregarDemandas();
-            this.mostrarToast(`Reunião agendada com sucesso!`);
+            this.mostrarToast(`Reunião salva com sucesso!`);
           } catch (err) {
             console.error('Erro ao agendar reunião:', err);
             this.mostrarToast(err.message, 'erro');
@@ -1788,13 +1846,13 @@
             }
 
             mapa[auditor].total++;
-            if (d.status === 'Concluída') {
+            if (d.status === 'Concluída' || d.status === 'Arquivada') {
               mapa[auditor].concluidos++;
             } else {
               mapa[auditor].emAndamento++;
             }
 
-            if (d.grau_risco === 'Crítico' || d.grau_risco === 'Alto') {
+            if ((d.grau_risco === 'Crítico' || d.grau_risco === 'Alto') && d.status !== 'Arquivada') {
               mapa[auditor].criticos++;
             }
 
@@ -1883,18 +1941,26 @@
         get demandasFiltradas() {
           let lista = this.demandasApenasFiscalizacao;
 
-          if (this.filtroRapido === 'visitas') {
-            lista = lista.filter(d => d.tipo_fiscalizacao === 'Visita in loco');
-          } else if (this.filtroRapido === 'vencidos') {
-            lista = lista.filter(d => this.estaVencido(d.prazo_fatal, d.status));
-          } else if (this.filtroRapido === 'andamento') {
-            lista = lista.filter(d => d.status === 'Em andamento' || d.status === 'Triagem');
-          } else if (this.filtroRapido === 'concluidas') {
-            lista = lista.filter(d => d.status === 'Concluída');
-          } else if (this.filtroRapido === 'os') {
-            lista = lista.filter(d => this.obterEsferaGestao(d) === 'Organização Social (OS)');
-          } else if (this.filtroRapido === 'municipio') {
-            lista = lista.filter(d => this.obterEsferaGestao(d) === 'Administração Municipal (Direta)');
+          // Se o filtro for especificamente "arquivadas", mostra apenas as arquivadas
+          if (this.filtroRapido === 'arquivadas') {
+            lista = lista.filter(d => d.status === 'Arquivada');
+          } else {
+            // Em todos os outros filtros operacionais normais, exclui as arquivadas para não poluir
+            lista = lista.filter(d => d.status !== 'Arquivada');
+
+            if (this.filtroRapido === 'visitas') {
+              lista = lista.filter(d => d.tipo_fiscalizacao === 'Visita in loco');
+            } else if (this.filtroRapido === 'vencidos') {
+              lista = lista.filter(d => this.estaVencido(d.prazo_fatal, d.status));
+            } else if (this.filtroRapido === 'andamento') {
+              lista = lista.filter(d => d.status === 'Em andamento' || d.status === 'Triagem');
+            } else if (this.filtroRapido === 'concluidas') {
+              lista = lista.filter(d => d.status === 'Concluída');
+            } else if (this.filtroRapido === 'os') {
+              lista = lista.filter(d => this.obterEsferaGestao(d) === 'Organização Social (OS)');
+            } else if (this.filtroRapido === 'municipio') {
+              lista = lista.filter(d => this.obterEsferaGestao(d) === 'Administração Municipal (Direta)');
+            }
           }
 
           if (!this.busca) return lista;
@@ -1910,7 +1976,7 @@
 
         get alertasPrioritarios() {
           return this.demandasApenasFiscalizacao.filter(d => {
-            if (d.status === 'Concluída') return false;
+            if (d.status === 'Concluída' || d.status === 'Arquivada') return false;
             const riscoAlto = d.grau_risco === 'Crítico' || d.grau_risco === 'Alto';
             const orgaoExterno = d.origem === 'Ministério Público' || d.origem === 'Tribunal de Contas';
             const vencidoOuQuase = this.diasAtePrazo(d.prazo_fatal) <= 3;
@@ -1929,7 +1995,7 @@
         },
 
         atualizarGraficos() {
-          const dadosFiscalizacao = this.demandasApenasFiscalizacao;
+          const dadosFiscalizacao = this.demandasApenasFiscalizacao.filter(d => d.status !== 'Arquivada');
 
           const totalDireta = dadosFiscalizacao.filter(d => this.obterEsferaGestao(d) === 'Administração Municipal (Direta)').length;
           const totalOS = dadosFiscalizacao.filter(d => this.obterEsferaGestao(d) === 'Organização Social (OS)').length;
@@ -2231,7 +2297,7 @@
         },
 
         estaVencido(dataIso, status) {
-          if (!dataIso || status === 'Concluída') return false;
+          if (!dataIso || status === 'Concluída' || status === 'Arquivada') return false;
           const hoje = new Date();
           hoje.setHours(0, 0, 0, 0);
 
@@ -2244,6 +2310,9 @@
 
         renderizarBadgePrazo(dataIso, status) {
           if (!dataIso) return '';
+          if (status === 'Arquivada') {
+            return `<span class="inline-flex items-center text-[10px] font-bold text-slate-700 bg-slate-100 border border-slate-300 px-1.5 py-0.5 rounded"><i class="fa-solid fa-box-archive mr-1"></i> Arquivo Histórico</span>`;
+          }
           if (status === 'Concluída') {
             return `<span class="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">Concluída / Registrada</span>`;
           }
