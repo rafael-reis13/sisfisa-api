@@ -218,8 +218,6 @@
               <button @click="filtroRapido = 'concluidas'" :class="filtroRapido === 'concluidas' ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1.5 rounded-lg transition">Concluídas</button>
               <button @click="filtroRapido = 'os'" :class="filtroRapido === 'os' ? 'bg-purple-800 text-white' : 'bg-slate-100 text-purple-700 hover:bg-purple-50'" class="px-3 py-1.5 rounded-lg transition">Só O.S.</button>
               <button @click="filtroRapido = 'municipio'" :class="filtroRapido === 'municipio' ? 'bg-sky-700 text-white' : 'bg-slate-100 text-sky-700 hover:bg-sky-50'" class="px-3 py-1.5 rounded-lg transition">Só Município</button>
-              
-              <!-- FILTRO: ARQUIVADAS -->
               <button @click="filtroRapido = 'arquivadas'" :class="filtroRapido === 'arquivadas' ? 'bg-slate-700 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'" class="px-3 py-1.5 rounded-lg transition flex items-center gap-1">
                 <i class="fa-solid fa-box-archive"></i> Arquivadas (<span x-text="demandasArquivadas.length"></span>)
               </button>
@@ -297,7 +295,7 @@
                         <i class="fa-regular fa-eye"></i>
                       </button>
 
-                      <!-- BOTÃO MUDAR STATUS RESTAURADO -->
+                      <!-- BOTÃO MUDAR STATUS -->
                       <button 
                         @click="avancarStatus(d)" 
                         class="text-xs font-semibold px-2 py-1 border border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-600 hover:text-white rounded transition flex items-center gap-1" 
@@ -440,7 +438,7 @@
       </div>
     </div>
 
-    <!-- ==================== ABA 4: CALENDÁRIO & REUNIÕES / VISITAS ==================== -->
+    <!-- ==================== ABA 4: CALENDÁRIO COM FERIADOS (NACIONAL, RJ E SAQUAREMA) ==================== -->
     <div x-show="abaAtiva === 'calendario'" x-cloak class="space-y-6">
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
@@ -457,6 +455,13 @@
             </div>
           </div>
 
+          <!-- Legenda de Feriados -->
+          <div class="flex items-center gap-4 text-[11px] text-slate-500 mb-3 px-1">
+            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Feriados Oficiais (Nacional / RJ / Saquarema)</span>
+            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Reunião</span>
+            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Visita in loco</span>
+          </div>
+
           <div class="grid grid-cols-7 gap-1 text-center font-bold text-xs text-slate-500 mb-2">
             <div>Dom</div><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div>
           </div>
@@ -465,19 +470,29 @@
             <template x-for="(diaObj, idx) in diasCalendario" :key="idx">
               <div 
                 @click="selecionarDiaCalendario(diaObj.dataIso)"
-                class="min-h-[84px] p-1.5 border rounded-lg flex flex-col justify-between transition cursor-pointer"
+                class="min-h-[86px] p-1.5 border rounded-lg flex flex-col justify-between transition cursor-pointer relative"
                 :class="{
                   'bg-slate-50 opacity-40': !diaObj.mesmoMes,
-                  'border-emerald-500 bg-emerald-50/40': diaObj.dataIso === diaSelecionadoIso,
-                  'border-sky-300 ring-2 ring-sky-200': diaObj.ehHoje,
-                  'hover:border-slate-400 bg-white': diaObj.mesmoMes && diaObj.dataIso !== diaSelecionadoIso
+                  'border-rose-400 bg-rose-50/50': diaObj.feriado && diaObj.mesmoMes && diaObj.dataIso !== diaSelecionadoIso,
+                  'border-emerald-500 bg-emerald-50/40 ring-2 ring-emerald-300': diaObj.dataIso === diaSelecionadoIso,
+                  'ring-2 ring-sky-300 border-sky-400': diaObj.ehHoje && diaObj.dataIso !== diaSelecionadoIso,
+                  'hover:border-slate-400 bg-white': diaObj.mesmoMes && !diaObj.feriado && diaObj.dataIso !== diaSelecionadoIso
                 }">
                 <div class="flex justify-between items-center">
-                  <span class="text-xs font-bold" :class="diaObj.ehHoje ? 'text-sky-700 underline' : 'text-slate-700'" x-text="diaObj.numeroDia"></span>
-                  <span x-show="obterCompromissosDoDia(diaObj.dataIso).length > 0" class="text-[10px] font-bold px-1.5 py-0.2 bg-sky-800 text-white rounded-full" x-text="obterCompromissosDoDia(diaObj.dataIso).length"></span>
+                  <span class="text-xs font-bold" :class="diaObj.feriado ? 'text-rose-700' : (diaObj.ehHoje ? 'text-sky-700 underline' : 'text-slate-700')" x-text="diaObj.numeroDia"></span>
+                  <div class="flex items-center gap-1">
+                    <span x-show="diaObj.feriado" class="text-[9px] px-1 py-0.2 bg-rose-100 text-rose-700 border border-rose-300 rounded font-bold" title="Feriado">F</span>
+                    <span x-show="obterCompromissosDoDia(diaObj.dataIso).length > 0" class="text-[10px] font-bold px-1.5 py-0.2 bg-sky-800 text-white rounded-full" x-text="obterCompromissosDoDia(diaObj.dataIso).length"></span>
+                  </div>
                 </div>
 
                 <div class="space-y-1 mt-1 overflow-hidden">
+                  <!-- Tag do feriado no dia -->
+                  <template x-if="diaObj.feriado">
+                    <div class="text-[9px] truncate px-1 py-0.5 rounded bg-rose-100 text-rose-800 font-bold border border-rose-200" :title="diaObj.feriado.nome" x-text="diaObj.feriado.nome"></div>
+                  </template>
+
+                  <!-- Compromissos agendados -->
                   <template x-for="r in obterCompromissosDoDia(diaObj.dataIso).slice(0, 2)" :key="r.id">
                     <div 
                       class="text-[10px] truncate px-1 py-0.5 rounded font-medium flex items-center gap-1"
@@ -493,7 +508,7 @@
           </div>
         </div>
 
-        <!-- Painel Lateral: Compromissos do Dia -->
+        <!-- Painel Lateral: Compromissos do Dia e Feriado em Destaque -->
         <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex flex-col justify-between">
           <div>
             <div class="flex justify-between items-center mb-3 pb-2 border-b">
@@ -511,7 +526,17 @@
               </div>
             </div>
 
-            <div class="space-y-2.5 max-h-[400px] overflow-y-auto pr-1">
+            <!-- Card Destaque de Feriado no dia selecionado -->
+            <div x-show="feriadoDoDiaSelecionado" class="mb-3 p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5 text-xs">
+              <i class="fa-solid fa-calendar-check text-rose-600 text-base mt-0.5"></i>
+              <div>
+                <span class="text-[10px] uppercase font-bold text-rose-600 tracking-wider block" x-text="feriadoDoDiaSelecionado?.tipo"></span>
+                <strong class="text-rose-950 font-bold text-sm block" x-text="feriadoDoDiaSelecionado?.nome"></strong>
+                <span class="text-[11px] text-rose-700" x-text="feriadoDoDiaSelecionado?.descricao"></span>
+              </div>
+            </div>
+
+            <div class="space-y-2.5 max-h-[360px] overflow-y-auto pr-1">
               <template x-for="r in compromissosFiltradosLateral" :key="r.id">
                 <div class="p-3 bg-slate-50 hover:bg-slate-100 border rounded-xl transition space-y-1.5">
                   <div class="flex justify-between items-start gap-1">
@@ -539,7 +564,7 @@
                 </div>
               </template>
 
-              <template x-if="compromissosFiltradosLateral.length === 0">
+              <template x-if="compromissosFiltradosLateral.length === 0 && !feriadoDoDiaSelecionado">
                 <div class="p-8 text-center text-slate-400 text-xs">
                   <i class="fa-regular fa-calendar-xmark text-2xl mb-2 text-slate-300 block"></i>
                   Nenhum compromisso agendado para este dia.
@@ -706,7 +731,7 @@
       </div>
     </div>
 
-    <!-- MODAL DE CADASTRO OU EDIÇÃO DE DEMANDA (COM SELETOR DE STATUS) -->
+    <!-- MODAL DE CADASTRO OU EDIÇÃO DE DEMANDA -->
     <div x-show="abrirModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
       <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto" @click.away="abrirModal = false">
         
@@ -882,7 +907,8 @@
                   :class="{
                     'bg-slate-200 text-slate-800 border border-slate-300': demandaVisualizada.status === 'Arquivada',
                     'bg-emerald-100 text-emerald-700': demandaVisualizada.status === 'Concluída',
-                    'bg-amber-100 text-amber-700': demandaVisualizada.status === 'Em andamento'
+                    'bg-amber-100 text-amber-700': demandaVisualizada.status === 'Em andamento',
+                    'bg-blue-100 text-blue-700': demandaVisualizada.status === 'Triagem'
                   }"
                   x-text="demandaVisualizada.status"></span>
               </div>
@@ -1094,7 +1120,7 @@
                   </div>
                   <p class="text-slate-700 leading-relaxed font-sans" x-text="v.descricao"></p>
                   <div class="text-[11px] text-slate-400 pt-1 flex justify-between border-t border-slate-100">
-                    <span>Fiscal/Auditor: <strong class="text-slate-600" x-text="v.responsavel_atribuido || 'Equipe FISA'"></strong></span>
+                    <span>Fiscal/Auditor: <strong x-text="v.responsavel_atribuido || 'Equipe FISA'"></strong></span>
                     <div class="flex gap-2">
                       <button @click="modalDossieUnidade = false; editarCompromisso(v)" class="text-amber-700 hover:underline font-bold">Editar</button>
                       <button @click="excluirDemanda(v.id, v.protocolo)" class="text-rose-600 hover:underline font-bold">Excluir</button>
@@ -1553,6 +1579,86 @@
           }
         },
 
+        // --- CÁLCULO DE FERIADOS: NACIONAL, ESTADUAL (RJ) E MUNICIPAL (SAQUAREMA) ---
+        calcularPascoa(ano) {
+          const a = ano % 19;
+          const b = Math.floor(ano / 100);
+          const c = ano % 100;
+          const d = Math.floor(b / 4);
+          const e = b % 4;
+          const f = Math.floor((b + 8) / 25);
+          const g = Math.floor((b - f + 1) / 3);
+          const h = (19 * a + b - d - g + 15) % 30;
+          const i = Math.floor(c / 4);
+          const k = c % 4;
+          const l = (32 + 2 * e + 2 * i - h - k) % 7;
+          const m = Math.floor((a + 11 * h + 22 * l) / 451);
+          const mes = Math.floor((h + l - 7 * m + 114) / 31);
+          const dia = ((h + l - 7 * m + 114) % 31) + 1;
+          return new Date(ano, mes - 1, dia);
+        },
+
+        obterFeriadosDoAno(ano) {
+          const feriados = {};
+
+          const adicionar = (dataIso, nome, tipo, descricao) => {
+            feriados[dataIso] = { nome, tipo, descricao };
+          };
+
+          // 1. Feriados Nacionais Fixos
+          adicionar(`${ano}-01-01`, 'Confraternização Universal', 'Feriado Nacional', 'Ano Novo');
+          adicionar(`${ano}-04-21`, 'Tiradentes', 'Feriado Nacional', 'Homenagem a Tiradentes');
+          adicionar(`${ano}-05-01`, 'Dia do Trabalhador', 'Feriado Nacional', 'Dia Mundial do Trabalho');
+          adicionar(`${ano}-09-07`, 'Independência do Brasil', 'Feriado Nacional', 'Dia da Pátria');
+          adicionar(`${ano}-10-12`, 'N. Sra. Aparecida', 'Feriado Nacional', 'Padroeira do Brasil');
+          adicionar(`${ano}-11-02`, 'Finados', 'Feriado Nacional', 'Dia de Finados');
+          adicionar(`${ano}-11-15`, 'Proclamação da República', 'Feriado Nacional', 'Proclamação da República');
+          adicionar(`${ano}-11-20`, 'Dia da Consciência Negra', 'Feriado Nacional', 'Zumbi dos Palmares');
+          adicionar(`${ano}-12-25`, 'Natal', 'Feriado Nacional', 'Celebração de Natal');
+
+          // 2. Feriados Estaduais do Rio de Janeiro
+          adicionar(`${ano}-04-23`, 'Dia de São Jorge', 'Feriado Estadual (RJ)', 'Lei Estadual nº 5.198/2008');
+
+          // 3. Feriados Municipais de Saquarema (Lei Municipal nº 567/2001 e nº 38/1967)
+          adicionar(`${ano}-05-08`, 'Emancipação de Saquarema', 'Feriado Municipal (Saquarema)', 'Aniversário da Cidade - Lei nº 567/2001');
+          adicionar(`${ano}-09-08`, 'N. Sra. de Nazareth', 'Feriado Municipal (Saquarema)', 'Padroeira do Município - Lei nº 567/2001');
+
+          // 4. Feriados Móveis (baseados no domingo de Páscoa)
+          const pascoa = this.calcularPascoa(ano);
+
+          // Terça-feira de Carnaval (47 dias antes da Páscoa) - Feriado Estadual RJ (Lei nº 5.243/2008)
+          const carnaval = new Date(pascoa);
+          carnaval.setDate(pascoa.getDate() - 47);
+          const carnavalIso = `${ano}-${String(carnaval.getMonth() + 1).padStart(2, '0')}-${String(carnaval.getDate()).padStart(2, '0')}`;
+          adicionar(carnavalIso, 'Carnaval', 'Feriado Estadual (RJ)', 'Lei Estadual nº 5.243/2008');
+
+          // Sexta-feira Santa / Paixão de Cristo (2 dias antes da Páscoa) - Feriado Nacional
+          const sextaSanta = new Date(pascoa);
+          sextaSanta.setDate(pascoa.getDate() - 2);
+          const sextaSantaIso = `${ano}-${String(sextaSanta.getMonth() + 1).padStart(2, '0')}-${String(sextaSanta.getDate()).padStart(2, '0')}`;
+          adicionar(sextaSantaIso, 'Sexta-feira Santa', 'Feriado Nacional', 'Paixão de Cristo');
+
+          // Corpus Christi (60 dias após a Páscoa) - Ponto Facultativo / Municipal
+          const corpus = new Date(pascoa);
+          corpus.setDate(pascoa.getDate() + 60);
+          const corpusIso = `${ano}-${String(corpus.getMonth() + 1).padStart(2, '0')}-${String(corpus.getDate()).padStart(2, '0')}`;
+          adicionar(corpusIso, 'Corpus Christi', 'Ponto Facultativo / Tradição', 'Celebração de Corpus Christi');
+
+          return feriados;
+        },
+
+        obterFeriadoDoDia(dataIso) {
+          if (!dataIso) return null;
+          const ano = Number(dataIso.substring(0, 4));
+          const feriados = this.obterFeriadosDoAno(ano);
+          return feriados[dataIso] || null;
+        },
+
+        get feriadoDoDiaSelecionado() {
+          if (!this.diaSelecionadoIso) return null;
+          return this.obterFeriadoDoDia(this.diaSelecionadoIso);
+        },
+
         montarDataIso(dataStr, horaStr) {
           if (!dataStr) return null;
           const hora = (horaStr && horaStr.trim() !== '') ? horaStr.trim() : '09:00';
@@ -1715,7 +1821,6 @@
           try {
             const dataFinalIso = this.montarDataIso(this.formReuniao.data_apenas, this.formReuniao.hora_apenas);
             
-            // Tratamento contra o limite de 30 caracteres do banco
             let protocoloFormatado = (this.formReuniao.protocolo || '').trim();
             let descricaoFinal = this.formReuniao.descricao || '';
 
@@ -2152,20 +2257,38 @@
           for (let i = diaSemanaInicio - 1; i >= 0; i--) {
             const diaNum = ultimoDiaMesAnterior - i;
             const dataIso = new Date(ano, mes - 1, diaNum).toISOString().substring(0, 10);
-            dias.push({ numeroDia: diaNum, dataIso, mesmoMes: false, ehHoje: false });
+            dias.push({ 
+              numeroDia: diaNum, 
+              dataIso, 
+              mesmoMes: false, 
+              ehHoje: false,
+              feriado: this.obterFeriadoDoDia(dataIso)
+            });
           }
 
           const hojeIso = new Date().toISOString().substring(0, 10);
           for (let i = 1; i <= ultimoDia.getDate(); i++) {
             const dataIso = `${ano}-${String(mes + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-            dias.push({ numeroDia: i, dataIso, mesmoMes: true, ehHoje: dataIso === hojeIso });
+            dias.push({ 
+              numeroDia: i, 
+              dataIso, 
+              mesmoMes: true, 
+              ehHoje: dataIso === hojeIso,
+              feriado: this.obterFeriadoDoDia(dataIso)
+            });
           }
 
           const totalCelulas = dias.length <= 35 ? 35 : 42;
           const restantes = totalCelulas - dias.length;
           for (let i = 1; i <= restantes; i++) {
             const dataIso = new Date(ano, mes + 1, i).toISOString().substring(0, 10);
-            dias.push({ numeroDia: i, dataIso, mesmoMes: false, ehHoje: false });
+            dias.push({ 
+              numeroDia: i, 
+              dataIso, 
+              mesmoMes: false, 
+              ehHoje: false,
+              feriado: this.obterFeriadoDoDia(dataIso)
+            });
           }
 
           return dias;
