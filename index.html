@@ -277,7 +277,7 @@
                     <span class="font-medium text-xs text-slate-700" x-text="d.responsavel_atribuido || 'Não atribuído'"></span>
                   </td>
                   <td class="p-4">
-                    <div class="font-mono text-xs font-semibold" x-text="formatarDataComHora(d.prazo_fatal)"></div>
+                    <div class="font-mono text-xs font-semibold" x-text="formatarDataComHora(d.prazo_fatal, d.descricao)"></div>
                     <div class="mt-1" x-html="renderizarBadgePrazo(d.prazo_fatal, d.status)"></div>
                   </td>
                   <td class="p-4">
@@ -291,7 +291,6 @@
                       x-text="d.status"></span>
                   </td>
                   
-                  <!-- ÍCONE DO GOOGLE DRIVE NA TABELA -->
                   <td class="p-4 text-center">
                     <template x-if="obterLinkDrive(d)">
                       <a :href="obterLinkDrive(d)" target="_blank" class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-sky-50 text-sky-700 hover:bg-sky-600 hover:text-white border border-sky-300 transition shadow-sm" title="Abrir pasta de fotos e laudos no Google Drive">
@@ -388,7 +387,7 @@
                 <template x-for="p in dados.processos.filter(x => x.status !== 'Concluída' && x.status !== 'Arquivada').slice(0, 4)" :key="p.id">
                   <div class="p-1.5 bg-slate-50 border rounded text-[11px] flex justify-between items-center hover:bg-slate-100 cursor-pointer" @click="iniciarEdicao(p)">
                     <span class="font-bold text-slate-700 truncate max-w-[170px]" x-text="p.protocolo"></span>
-                    <span class="text-[10px] text-slate-400" x-text="formatarDataComHora(p.prazo_fatal)"></span>
+                    <span class="text-[10px] text-slate-400" x-text="formatarDataComHora(p.prazo_fatal, p.descricao)"></span>
                   </div>
                 </template>
               </div>
@@ -507,7 +506,7 @@
                       class="text-[10px] truncate px-1 py-0.5 rounded font-medium flex items-center gap-1"
                       :class="r.tipo_fiscalizacao === 'Visita in loco' ? 'bg-amber-100 text-amber-900 border border-amber-200' : 'bg-emerald-100 text-emerald-900 border border-emerald-200'"
                       :title="r.protocolo">
-                      <span class="font-mono text-[9px] font-bold" x-text="extrairHora(r.prazo_fatal) || ''"></span>
+                      <span class="font-mono text-[9px] font-bold" x-text="extrairHora(r.prazo_fatal, r.descricao) || ''"></span>
                       <span class="truncate" x-text="r.protocolo"></span>
                     </div>
                   </template>
@@ -517,7 +516,7 @@
           </div>
         </div>
 
-        <!-- Painel Lateral: Compromissos do Dia -->
+        <!-- Painel Lateral: Compromissos do Dia com Horário Extraído e Feriados -->
         <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex flex-col justify-between">
           <div>
             <div class="flex justify-between items-center mb-3 pb-2 border-b">
@@ -556,12 +555,13 @@
                       <h4 class="font-bold text-xs text-slate-800 leading-snug" x-text="r.protocolo"></h4>
                     </div>
                     <div class="text-right">
-                      <span class="text-[11px] font-mono font-bold text-slate-800 bg-white border px-1.5 py-0.5 rounded shadow-sm inline-block" x-text="extrairHora(r.prazo_fatal) || 'Horário livre'"></span>
+                      <!-- EXIBIÇÃO ROBUSTA DA HORA -->
+                      <span class="text-[11px] font-mono font-bold text-slate-800 bg-white border px-1.5 py-0.5 rounded shadow-sm inline-block" x-text="extrairHora(r.prazo_fatal, r.descricao) ? extrairHora(r.prazo_fatal, r.descricao) + 'h' : 'Horário livre'"></span>
                       <span class="text-[10px] text-slate-400 block mt-0.5" x-text="formatarData(r.prazo_fatal)"></span>
                     </div>
                   </div>
 
-                  <p class="text-xs text-slate-600 line-clamp-2" x-text="r.descricao || 'Sem descrição detalhada.'"></p>
+                  <p class="text-xs text-slate-600 line-clamp-2" x-text="limparTextoDescricao(r.descricao)"></p>
 
                   <div class="flex justify-between items-center text-[11px] text-slate-500 pt-1.5 border-t border-slate-200">
                     <span class="truncate max-w-[140px]"><i class="fa-solid fa-user-tie mr-1 text-slate-400"></i><span x-text="r.responsavel_atribuido || 'Equipe FISA'"></span></span>
@@ -618,7 +618,7 @@
               <input type="date" x-model="formVisita.data_apenas" required class="w-full border rounded px-3 py-1.5 text-sm bg-white">
             </div>
             <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Horário Previsto / Realizado</label>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Horário Marcado</label>
               <input type="time" x-model="formVisita.hora_apenas" class="w-full border rounded px-3 py-1.5 text-sm bg-white font-mono">
             </div>
           </div>
@@ -814,7 +814,7 @@
             </select>
           </div>
 
-          <!-- NOVO CAMPO: LINK DO GOOGLE DRIVE -->
+          <!-- CAMPO: LINK DO GOOGLE DRIVE -->
           <div class="bg-sky-50/70 p-3 rounded-lg border border-sky-200">
             <label class="block text-xs font-bold text-sky-950 mb-1 flex items-center gap-1.5">
               <i class="fa-brands fa-google-drive text-sky-700"></i> Pasta de Documentos e Fotos (Google Drive)
@@ -946,7 +946,7 @@
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" x-if="demandaVisualizada">
             <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
               <span class="text-xs text-slate-500 block mb-0.5 font-medium">Data Agendada / Prazo</span>
-              <span class="font-semibold font-mono text-xs" x-text="formatarDataComHora(demandaVisualizada.prazo_fatal)"></span>
+              <span class="font-semibold font-mono text-xs" x-text="formatarDataComHora(demandaVisualizada.prazo_fatal, demandaVisualizada.descricao)"></span>
             </div>
             <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
               <span class="text-xs text-slate-500 block mb-0.5 font-medium">Responsável / Auditor</span>
@@ -1155,11 +1155,11 @@
                 <div class="p-3 bg-white border border-amber-200 rounded-lg shadow-sm text-xs space-y-1">
                   <div class="flex justify-between items-center">
                     <span class="font-bold text-slate-900" x-text="v.protocolo"></span>
-                    <span class="font-mono text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded" x-text="formatarDataComHora(v.prazo_fatal)"></span>
+                    <span class="font-mono text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded" x-text="formatarDataComHora(v.prazo_fatal, v.descricao)"></span>
                   </div>
-                  <p class="text-slate-700 leading-relaxed font-sans" x-text="v.descricao"></p>
+                  <p class="text-slate-700 leading-relaxed font-sans" x-text="limparTextoDescricao(v.descricao)"></p>
                   <div class="text-[11px] text-slate-400 pt-1 flex justify-between border-t border-slate-100">
-                    <span>Fiscal/Auditor: <strong x-text="v.responsavel_atribuido || 'Equipe FISA'"></strong></span>
+                    <span>Fiscal/Auditor: <strong class="text-slate-600" x-text="v.responsavel_atribuido || 'Equipe FISA'"></strong></span>
                     <div class="flex gap-2">
                       <button @click="modalDossieUnidade = false; editarCompromisso(v)" class="text-amber-700 hover:underline font-bold">Editar</button>
                       <button @click="excluirDemanda(v.id, v.protocolo)" class="text-rose-600 hover:underline font-bold">Excluir</button>
@@ -1191,11 +1191,11 @@
                         x-text="d.grau_risco"></span>
                       <span class="text-[10px] text-slate-400" x-text="'&bull; ' + d.origem"></span>
                     </div>
-                    <p class="text-slate-600 mt-1 line-clamp-1" x-text="d.descricao"></p>
+                    <p class="text-slate-600 mt-1 line-clamp-1" x-text="limparTextoDescricao(d.descricao)"></p>
                   </div>
                   <div class="text-right whitespace-nowrap">
                     <span class="text-[11px] font-semibold" :class="d.status === 'Concluída' ? 'text-emerald-700' : 'text-amber-700'" x-text="d.status"></span>
-                    <span class="text-[10px] text-slate-400 block" x-text="formatarDataComHora(d.prazo_fatal)"></span>
+                    <span class="text-[10px] text-slate-400 block" x-text="formatarDataComHora(d.prazo_fatal, d.descricao)"></span>
                   </div>
                 </div>
               </template>
@@ -1317,7 +1317,7 @@
       <div style="display: flex; gap: 12px; margin-bottom: 10px;">
         <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
           <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Data e Horário</span>
-          <strong style="font-family: monospace;" x-text="formatarDataComHora(demandaVisualizada?.prazo_fatal)"></strong>
+          <strong style="font-family: monospace;" x-text="formatarDataComHora(demandaVisualizada?.prazo_fatal, demandaVisualizada?.descricao)"></strong>
         </div>
         <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
           <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Responsável / Auditor</span>
@@ -1384,9 +1384,9 @@
           <div style="border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; margin-bottom: 6px;">
             <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px; margin-bottom: 4px;">
               <span x-text="v.protocolo"></span>
-              <span style="font-family: monospace; color: #b45309;" x-text="formatarDataComHora(v.prazo_fatal)"></span>
+              <span style="font-family: monospace; color: #b45309;" x-text="formatarDataComHora(v.prazo_fatal, v.descricao)"></span>
             </div>
-            <p style="margin: 0; font-size: 10.5px; color: #334155; line-height: 1.4;" x-text="v.descricao"></p>
+            <p style="margin: 0; font-size: 10.5px; color: #334155; line-height: 1.4;" x-text="limparTextoDescricao(v.descricao)"></p>
             <div style="font-size: 9.5px; color: #64748b; margin-top: 4px; border-top: 1px dashed #e2e8f0; padding-top: 3px;">
               <span>Auditor/Fiscal: <strong x-text="v.responsavel_atribuido || 'Equipe FISA'"></strong></span>
               <span style="margin-left: 12px;" x-text="'Risco apurado: ' + v.grau_risco"></span>
@@ -1403,9 +1403,9 @@
           <div style="border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; margin-bottom: 6px;">
             <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px; margin-bottom: 3px;">
               <span x-text="d.protocolo + ' (' + d.tipo_fiscalizacao + ')'"></span>
-              <span style="font-size: 10px; color: #475569;" x-text="d.status + ' &bull; Data: ' + formatarDataComHora(d.prazo_fatal)"></span>
+              <span style="font-size: 10px; color: #475569;" x-text="d.status + ' &bull; Data: ' + formatarDataComHora(d.prazo_fatal, d.descricao)"></span>
             </div>
-            <p style="margin: 0; font-size: 10.5px; color: #334155; line-height: 1.4;" x-text="d.descricao"></p>
+            <p style="margin: 0; font-size: 10.5px; color: #334155; line-height: 1.4;" x-text="limparTextoDescricao(d.descricao)"></p>
           </div>
         </template>
       </div>
@@ -1457,7 +1457,7 @@
               <span x-text="d.protocolo + ' &bull; ' + (d.unidade_nome || 'Geral') + ' (' + obterEsferaGestao(d) + ')'"></span>
               <span style="color: #e11d48;" x-text="d.grau_risco"></span>
             </div>
-            <p style="margin: 0; font-size: 10px; color: #475569;" x-text="d.descricao"></p>
+            <p style="margin: 0; font-size: 10px; color: #475569;" x-text="limparTextoDescricao(d.descricao)"></p>
           </div>
         </template>
       </div>
@@ -1675,22 +1675,22 @@
           adicionar(`${ano}-05-08`, 'Emancipação de Saquarema', 'Feriado Municipal (Saquarema)', 'Aniversário da Cidade - Lei nº 567/2001');
           adicionar(`${ano}-09-08`, 'N. Sra. de Nazareth', 'Feriado Municipal (Saquarema)', 'Padroeira do Município - Lei nº 567/2001');
 
-          // 4. Feriados Móveis (baseados no domingo de Páscoa)
+          // 4. Feriados Móveis
           const pascoa = this.calcularPascoa(ano);
 
-          // Terça-feira de Carnaval (47 dias antes da Páscoa) - Feriado Estadual RJ (Lei nº 5.243/2008)
+          // Terça-feira de Carnaval
           const carnaval = new Date(pascoa);
           carnaval.setDate(pascoa.getDate() - 47);
           const carnavalIso = `${ano}-${String(carnaval.getMonth() + 1).padStart(2, '0')}-${String(carnaval.getDate()).padStart(2, '0')}`;
           adicionar(carnavalIso, 'Carnaval', 'Feriado Estadual (RJ)', 'Lei Estadual nº 5.243/2008');
 
-          // Sexta-feira Santa / Paixão de Cristo (2 dias antes da Páscoa) - Feriado Nacional
+          // Sexta-feira Santa
           const sextaSanta = new Date(pascoa);
           sextaSanta.setDate(pascoa.getDate() - 2);
           const sextaSantaIso = `${ano}-${String(sextaSanta.getMonth() + 1).padStart(2, '0')}-${String(sextaSanta.getDate()).padStart(2, '0')}`;
           adicionar(sextaSantaIso, 'Sexta-feira Santa', 'Feriado Nacional', 'Paixão de Cristo');
 
-          // Corpus Christi (60 dias após a Páscoa) - Ponto Facultativo / Tradição
+          // Corpus Christi
           const corpus = new Date(pascoa);
           corpus.setDate(pascoa.getDate() + 60);
           const corpusIso = `${ano}-${String(corpus.getMonth() + 1).padStart(2, '0')}-${String(corpus.getDate()).padStart(2, '0')}`;
@@ -1717,17 +1717,35 @@
           return `${dataStr}T${hora}:00`;
         },
 
-        extrairHora(dataIso) {
-          if (!dataIso || !dataIso.includes('T')) return '';
-          return dataIso.split('T')[1].substring(0, 5);
+        // EXTRAÇÃO ROBUSTA DA HORA: lê o ISO ou a tag [HORA: HH:MM] na descrição
+        extrairHora(dataIso, descricao = '') {
+          if (dataIso && dataIso.includes('T')) {
+            const h = dataIso.split('T')[1].substring(0, 5);
+            if (h && h !== '00:00') return h;
+          }
+          if (descricao && descricao.includes('[HORA:')) {
+            const match = descricao.match(/\[HORA:\s*([0-9]{2}:[0-9]{2})\]/);
+            if (match && match[1]) return match[1];
+          }
+          return '';
         },
 
-        formatarDataComHora(dataIso) {
+        formatarDataComHora(dataIso, descricao = '') {
           if (!dataIso) return '-';
-          const [dataParte, horaParte] = dataIso.split('T');
-          const [ano, mes, dia] = dataParte.substring(0, 10).split('-');
-          const horaFormatada = horaParte ? ` às ${horaParte.substring(0, 5)}` : '';
+          const [ano, mes, dia] = dataIso.substring(0, 10).split('-');
+          const hora = this.extrairHora(dataIso, descricao);
+          const horaFormatada = hora ? ` às ${hora}h` : '';
           return `${dia}/${mes}/${ano}${horaFormatada}`;
+        },
+
+        limparTextoDescricao(desc) {
+          if (!desc) return 'Sem descrição detalhada.';
+          return desc
+            .replace(/\[HORA:\s*[0-9]{2}:[0-9]{2}\]\s*/g, '')
+            .replace(/\[GESTÃO:\s*[^\]]+\]\s*/g, '')
+            .replace(/\[PAUTA:\s*[^\]]+\]\s*/g, '')
+            .replace(/\[DRIVE:\s*[^\]]+\]\s*/g, '')
+            .trim() || 'Sem descrição detalhada.';
         },
 
         // --- ALTERAÇÃO DIRETA DE SITUAÇÃO / STATUS ---
@@ -1836,7 +1854,8 @@
         editarCompromisso(c) {
           this.editandoCompromissoId = c.id;
           const dataParte = c.prazo_fatal ? c.prazo_fatal.substring(0, 10) : new Date().toISOString().substring(0, 10);
-          const horaParte = this.extrairHora(c.prazo_fatal) || '09:00';
+          const horaParte = this.extrairHora(c.prazo_fatal, c.descricao) || '09:00';
+          const descLimpa = this.limparTextoDescricao(c.descricao);
 
           if (c.tipo_fiscalizacao === 'Visita in loco') {
             this.formVisita = {
@@ -1848,7 +1867,7 @@
               grau_risco: c.grau_risco || 'Médio',
               data_apenas: dataParte,
               hora_apenas: horaParte,
-              descricao: c.descricao || '',
+              descricao: descLimpa,
               responsavel_atribuido: c.responsavel_atribuido || '',
               link_drive: this.obterLinkDrive(c) || ''
             };
@@ -1863,7 +1882,7 @@
               grau_risco: c.grau_risco || 'Baixo',
               data_apenas: dataParte,
               hora_apenas: horaParte,
-              descricao: c.descricao || '',
+              descricao: descLimpa,
               responsavel_atribuido: c.responsavel_atribuido || ''
             };
             this.abrirModalNovaReuniao = true;
@@ -1874,9 +1893,13 @@
           this.salvando = true;
           try {
             const dataFinalIso = this.montarDataIso(this.formReuniao.data_apenas, this.formReuniao.hora_apenas);
+            const horaDefinida = this.formReuniao.hora_apenas || '14:00';
             
             let protocoloFormatado = (this.formReuniao.protocolo || '').trim();
             let descricaoFinal = this.formReuniao.descricao || '';
+
+            // Guarda a hora garantida no texto para os casos em que o Postgres usa coluna tipo DATE pura
+            descricaoFinal = `[HORA: ${horaDefinida}]\n` + descricaoFinal;
 
             if (protocoloFormatado.length > 28) {
               descricaoFinal = `[PAUTA: ${protocoloFormatado}]\n` + descricaoFinal;
@@ -1915,7 +1938,7 @@
             this.abrirModalNovaReuniao = false;
             this.editandoCompromissoId = null;
             await this.carregarDemandas();
-            this.mostrarToast(`Reunião salva com sucesso!`);
+            this.mostrarToast(`Reunião agendada às ${horaDefinida}h com sucesso!`);
           } catch (err) {
             console.error('Erro ao agendar reunião:', err);
             this.mostrarToast(err.message, 'erro');
@@ -1928,6 +1951,12 @@
           this.salvando = true;
           try {
             const dataFinalIso = this.montarDataIso(this.formVisita.data_apenas, this.formVisita.hora_apenas);
+            const horaDefinida = this.formVisita.hora_apenas || '09:00';
+            let descricaoFinal = this.formVisita.descricao || '';
+            
+            // Guarda a hora garantida no texto
+            descricaoFinal = `[HORA: ${horaDefinida}]\n` + descricaoFinal;
+
             const payload = {
               protocolo: (this.formVisita.protocolo || '').trim().slice(0, 30),
               origem: this.formVisita.origem,
@@ -1936,7 +1965,7 @@
               tipo_fiscalizacao: 'Visita in loco',
               grau_risco: this.formVisita.grau_risco,
               prazo_fatal: dataFinalIso,
-              descricao: this.formVisita.descricao,
+              descricao: descricaoFinal,
               responsavel_atribuido: this.formVisita.responsavel_atribuido,
               link_drive: this.formVisita.link_drive ? this.formVisita.link_drive.trim() : null,
               status: 'Concluída'
@@ -1962,7 +1991,7 @@
             this.abrirModalVisita = false;
             this.editandoCompromissoId = null;
             await this.carregarDemandas();
-            this.mostrarToast(`Visita in loco "${payload.protocolo}" salva com sucesso!`);
+            this.mostrarToast(`Visita in loco salva às ${horaDefinida}h!`);
           } catch (err) {
             this.mostrarToast(err.message, 'erro');
           } finally {
@@ -2453,7 +2482,7 @@
             `"${this.obterEsferaGestao(d)}"`,
             `"${d.tipo_fiscalizacao || ''}"`,
             `"${d.grau_risco || ''}"`,
-            `"${this.formatarDataComHora(d.prazo_fatal)}"`,
+            `"${this.formatarDataComHora(d.prazo_fatal, d.descricao)}"`,
             `"${d.status || ''}"`,
             `"${d.responsavel_atribuido || ''}"`,
             `"${this.obterLinkDrive(d) || ''}"`
