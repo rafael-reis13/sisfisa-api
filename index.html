@@ -218,6 +218,8 @@
               <button @click="filtroRapido = 'concluidas'" :class="filtroRapido === 'concluidas' ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1.5 rounded-lg transition">Concluídas</button>
               <button @click="filtroRapido = 'os'" :class="filtroRapido === 'os' ? 'bg-purple-800 text-white' : 'bg-slate-100 text-purple-700 hover:bg-purple-50'" class="px-3 py-1.5 rounded-lg transition">Só O.S.</button>
               <button @click="filtroRapido = 'municipio'" :class="filtroRapido === 'municipio' ? 'bg-sky-700 text-white' : 'bg-slate-100 text-sky-700 hover:bg-sky-50'" class="px-3 py-1.5 rounded-lg transition">Só Município</button>
+              
+              <!-- FILTRO: ARQUIVADAS -->
               <button @click="filtroRapido = 'arquivadas'" :class="filtroRapido === 'arquivadas' ? 'bg-slate-700 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'" class="px-3 py-1.5 rounded-lg transition flex items-center gap-1">
                 <i class="fa-solid fa-box-archive"></i> Arquivadas (<span x-text="demandasArquivadas.length"></span>)
               </button>
@@ -291,6 +293,7 @@
                       x-text="d.status"></span>
                   </td>
                   
+                  <!-- ÍCONE DO GOOGLE DRIVE NA TABELA -->
                   <td class="p-4 text-center">
                     <template x-if="obterLinkDrive(d)">
                       <a :href="obterLinkDrive(d)" target="_blank" class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-sky-50 text-sky-700 hover:bg-sky-600 hover:text-white border border-sky-300 transition shadow-sm" title="Abrir pasta de fotos e laudos no Google Drive">
@@ -555,7 +558,6 @@
                       <h4 class="font-bold text-xs text-slate-800 leading-snug" x-text="r.protocolo"></h4>
                     </div>
                     <div class="text-right">
-                      <!-- EXIBIÇÃO ROBUSTA DA HORA -->
                       <span class="text-[11px] font-mono font-bold text-slate-800 bg-white border px-1.5 py-0.5 rounded shadow-sm inline-block" x-text="extrairHora(r.prazo_fatal, r.descricao) ? extrairHora(r.prazo_fatal, r.descricao) + 'h' : 'Horário livre'"></span>
                       <span class="text-[10px] text-slate-400 block mt-0.5" x-text="formatarData(r.prazo_fatal)"></span>
                     </div>
@@ -659,12 +661,12 @@
             </div>
           </div>
 
-          <!-- CAMPO DRIVE PARA VISITAS IN LOCO -->
+          <!-- CAMPO DRIVE PARA VISITAS IN LOCO (TOTALMENTE OPCIONAL) -->
           <div class="bg-sky-50/70 p-3 rounded-lg border border-sky-200">
             <label class="block text-xs font-bold text-sky-950 mb-1 flex items-center gap-1.5">
-              <i class="fa-brands fa-google-drive text-sky-700"></i> Pasta de Fotos e Documentos (Drive)
+              <i class="fa-brands fa-google-drive text-sky-700"></i> Pasta de Fotos e Documentos (Drive) <span class="text-[10px] font-normal text-slate-500">(opcional)</span>
             </label>
-            <input type="url" x-model="formVisita.link_drive" placeholder="https://drive.google.com/drive/folders/..." class="w-full border rounded px-3 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-sky-500">
+            <input type="text" x-model="formVisita.link_drive" placeholder="Cole o link da pasta se houver, ou deixe em branco" class="w-full border rounded px-3 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-sky-500">
           </div>
 
           <div>
@@ -748,7 +750,7 @@
       </div>
     </div>
 
-    <!-- MODAL DE CADASTRO OU EDIÇÃO DE DEMANDA (COM CAMPO GOOGLE DRIVE) -->
+    <!-- MODAL DE CADASTRO OU EDIÇÃO DE DEMANDA (COM CAMPO GOOGLE DRIVE OPCIONAL) -->
     <div x-show="abrirModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
       <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto" @click.away="abrirModal = false">
         
@@ -814,13 +816,13 @@
             </select>
           </div>
 
-          <!-- CAMPO: LINK DO GOOGLE DRIVE -->
+          <!-- CAMPO GOOGLE DRIVE TOTALMENTE OPCIONAL -->
           <div class="bg-sky-50/70 p-3 rounded-lg border border-sky-200">
             <label class="block text-xs font-bold text-sky-950 mb-1 flex items-center gap-1.5">
-              <i class="fa-brands fa-google-drive text-sky-700"></i> Pasta de Documentos e Fotos (Google Drive)
+              <i class="fa-brands fa-google-drive text-sky-700"></i> Pasta de Documentos e Fotos (Google Drive) <span class="text-[10px] font-normal text-slate-500">(opcional)</span>
             </label>
-            <input type="url" x-model="formDemanda.link_drive" placeholder="https://drive.google.com/drive/folders/..." class="w-full border rounded px-3 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-sky-500">
-            <span class="text-[10px] text-slate-500 mt-1 block">Cole o link da pasta na nuvem com relatórios, laudos e fotos da vistoria.</span>
+            <input type="text" x-model="formDemanda.link_drive" placeholder="Cole o link da pasta se houver, ou deixe em branco" class="w-full border rounded px-3 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-sky-500">
+            <span class="text-[10px] text-slate-500 mt-1 block">Não é obrigatório preencher. Deixe vazio se não houver pasta no Drive.</span>
           </div>
 
           <div>
@@ -933,7 +935,8 @@
                   :class="{
                     'bg-slate-200 text-slate-800 border border-slate-300': demandaVisualizada.status === 'Arquivada',
                     'bg-emerald-100 text-emerald-700': demandaVisualizada.status === 'Concluída',
-                    'bg-amber-100 text-amber-700': demandaVisualizada.status === 'Em andamento'
+                    'bg-amber-100 text-amber-700': demandaVisualizada.status === 'Em andamento',
+                    'bg-blue-100 text-blue-700': demandaVisualizada.status === 'Triagem'
                   }"
                   x-text="demandaVisualizada.status"></span>
               </div>
@@ -954,7 +957,7 @@
             </div>
           </div>
 
-          <!-- BOTÃO EM DESTAQUE DO GOOGLE DRIVE NOS DETALHES -->
+          <!-- BOTÃO EM DESTAQUE DO GOOGLE DRIVE (SÓ EXIBE SE HOUVER LINK) -->
           <div x-show="obterLinkDrive(demandaVisualizada)" class="p-3 bg-sky-50 border border-sky-200 rounded-lg flex items-center justify-between">
             <div class="flex items-center gap-2">
               <i class="fa-brands fa-google-drive text-sky-700 text-lg"></i>
@@ -1060,7 +1063,7 @@
             </div>
             
             <div class="divide-y border rounded-lg overflow-hidden bg-white max-h-60 overflow-y-auto">
-              <template x-for="u in unidades" :key="u.id">
+              <template x-for="u in units" :key="u.id">
                 <div class="p-3 flex items-center justify-between hover:bg-slate-50 transition text-sm">
                   <div>
                     <p class="font-bold text-slate-800 text-xs sm:text-sm" x-text="u.nome_fantasia"></p>
@@ -1159,7 +1162,7 @@
                   </div>
                   <p class="text-slate-700 leading-relaxed font-sans" x-text="limparTextoDescricao(v.descricao)"></p>
                   <div class="text-[11px] text-slate-400 pt-1 flex justify-between border-t border-slate-100">
-                    <span>Fiscal/Auditor: <strong class="text-slate-600" x-text="v.responsavel_atribuido || 'Equipe FISA'"></strong></span>
+                    <span>Fiscal/Auditor: <strong x-text="v.responsavel_atribuido || 'Equipe FISA'"></strong></span>
                     <div class="flex gap-2">
                       <button @click="modalDossieUnidade = false; editarCompromisso(v)" class="text-amber-700 hover:underline font-bold">Editar</button>
                       <button @click="excluirDemanda(v.id, v.protocolo)" class="text-rose-600 hover:underline font-bold">Excluir</button>
@@ -1623,7 +1626,9 @@
         // --- GOOGLE DRIVE: EXTRAÇÃO AUTOMÁTICA DE LINK ---
         obterLinkDrive(d) {
           if (!d) return null;
-          if (d.link_drive && d.link_drive.trim() !== '') return d.link_drive.trim();
+          if (d.link_drive && typeof d.link_drive === 'string' && d.link_drive.trim() !== '') {
+            return d.link_drive.trim();
+          }
           if (d.descricao && d.descricao.includes('[DRIVE:')) {
             const match = d.descricao.match(/\[DRIVE:\s*(https?:\/\/[^\]]+)\]/);
             if (match && match[1]) return match[1].trim();
@@ -1657,7 +1662,6 @@
             feriados[dataIso] = { nome, tipo, descricao };
           };
 
-          // 1. Feriados Nacionais Fixos
           adicionar(`${ano}-01-01`, 'Confraternização Universal', 'Feriado Nacional', 'Ano Novo');
           adicionar(`${ano}-04-21`, 'Tiradentes', 'Feriado Nacional', 'Homenagem a Tiradentes');
           adicionar(`${ano}-05-01`, 'Dia do Trabalhador', 'Feriado Nacional', 'Dia Mundial do Trabalho');
@@ -1668,29 +1672,23 @@
           adicionar(`${ano}-11-20`, 'Dia da Consciência Negra', 'Feriado Nacional', 'Zumbi dos Palmares');
           adicionar(`${ano}-12-25`, 'Natal', 'Feriado Nacional', 'Celebração de Natal');
 
-          // 2. Feriados Estaduais do Rio de Janeiro
           adicionar(`${ano}-04-23`, 'Dia de São Jorge', 'Feriado Estadual (RJ)', 'Lei Estadual nº 5.198/2008');
 
-          // 3. Feriados Municipais de Saquarema (Lei Municipal nº 567/2001 e nº 38/1967)
           adicionar(`${ano}-05-08`, 'Emancipação de Saquarema', 'Feriado Municipal (Saquarema)', 'Aniversário da Cidade - Lei nº 567/2001');
           adicionar(`${ano}-09-08`, 'N. Sra. de Nazareth', 'Feriado Municipal (Saquarema)', 'Padroeira do Município - Lei nº 567/2001');
 
-          // 4. Feriados Móveis
           const pascoa = this.calcularPascoa(ano);
 
-          // Terça-feira de Carnaval
           const carnaval = new Date(pascoa);
           carnaval.setDate(pascoa.getDate() - 47);
           const carnavalIso = `${ano}-${String(carnaval.getMonth() + 1).padStart(2, '0')}-${String(carnaval.getDate()).padStart(2, '0')}`;
           adicionar(carnavalIso, 'Carnaval', 'Feriado Estadual (RJ)', 'Lei Estadual nº 5.243/2008');
 
-          // Sexta-feira Santa
           const sextaSanta = new Date(pascoa);
           sextaSanta.setDate(pascoa.getDate() - 2);
           const sextaSantaIso = `${ano}-${String(sextaSanta.getMonth() + 1).padStart(2, '0')}-${String(sextaSanta.getDate()).padStart(2, '0')}`;
           adicionar(sextaSantaIso, 'Sexta-feira Santa', 'Feriado Nacional', 'Paixão de Cristo');
 
-          // Corpus Christi
           const corpus = new Date(pascoa);
           corpus.setDate(pascoa.getDate() + 60);
           const corpusIso = `${ano}-${String(corpus.getMonth() + 1).padStart(2, '0')}-${String(corpus.getDate()).padStart(2, '0')}`;
@@ -1717,7 +1715,6 @@
           return `${dataStr}T${hora}:00`;
         },
 
-        // EXTRAÇÃO ROBUSTA DA HORA: lê o ISO ou a tag [HORA: HH:MM] na descrição
         extrairHora(dataIso, descricao = '') {
           if (dataIso && dataIso.includes('T')) {
             const h = dataIso.split('T')[1].substring(0, 5);
@@ -1748,7 +1745,6 @@
             .trim() || 'Sem descrição detalhada.';
         },
 
-        // --- ALTERAÇÃO DIRETA DE SITUAÇÃO / STATUS ---
         async avancarStatus(d) {
           const proximoStatus = d.status === 'Triagem' 
             ? 'Em andamento' 
@@ -1898,7 +1894,6 @@
             let protocoloFormatado = (this.formReuniao.protocolo || '').trim();
             let descricaoFinal = this.formReuniao.descricao || '';
 
-            // Guarda a hora garantida no texto para os casos em que o Postgres usa coluna tipo DATE pura
             descricaoFinal = `[HORA: ${horaDefinida}]\n` + descricaoFinal;
 
             if (protocoloFormatado.length > 28) {
@@ -1954,8 +1949,11 @@
             const horaDefinida = this.formVisita.hora_apenas || '09:00';
             let descricaoFinal = this.formVisita.descricao || '';
             
-            // Guarda a hora garantida no texto
             descricaoFinal = `[HORA: ${horaDefinida}]\n` + descricaoFinal;
+
+            const linkLimpo = (this.formVisita.link_drive && this.formVisita.link_drive.trim() !== '') 
+              ? this.formVisita.link_drive.trim() 
+              : null;
 
             const payload = {
               protocolo: (this.formVisita.protocolo || '').trim().slice(0, 30),
@@ -1967,7 +1965,7 @@
               prazo_fatal: dataFinalIso,
               descricao: descricaoFinal,
               responsavel_atribuido: this.formVisita.responsavel_atribuido,
-              link_drive: this.formVisita.link_drive ? this.formVisita.link_drive.trim() : null,
+              link_drive: linkLimpo,
               status: 'Concluída'
             };
 
@@ -2140,10 +2138,14 @@
         async salvarDemanda() {
           this.salvando = true;
           try {
+            const linkLimpo = (this.formDemanda.link_drive && this.formDemanda.link_drive.trim() !== '') 
+              ? this.formDemanda.link_drive.trim() 
+              : null;
+
             const payload = {
               ...this.formDemanda,
               unidade_id: this.formDemanda.unidade_id || null,
-              link_drive: this.formDemanda.link_drive ? this.formDemanda.link_drive.trim() : null
+              link_drive: linkLimpo
             };
 
             const url = this.editandoId 
