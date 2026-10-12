@@ -241,13 +241,14 @@
                 <th class="p-4">Responsável</th>
                 <th class="p-4">Data e Horário</th>
                 <th class="p-4">Situação</th>
+                <th class="p-4 text-center">Docs/Drive</th>
                 <th class="p-4 text-center">Ações</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
               <template x-if="carregando">
                 <tr>
-                  <td colspan="8" class="p-8 text-center text-slate-500">
+                  <td colspan="9" class="p-8 text-center text-slate-500">
                     <i class="fa-solid fa-spinner fa-spin mr-2 text-sky-600"></i> Sincronizando registros...
                   </td>
                 </tr>
@@ -289,13 +290,25 @@
                       }"
                       x-text="d.status"></span>
                   </td>
+                  
+                  <!-- ÍCONE DO GOOGLE DRIVE NA TABELA -->
+                  <td class="p-4 text-center">
+                    <template x-if="obterLinkDrive(d)">
+                      <a :href="obterLinkDrive(d)" target="_blank" class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-sky-50 text-sky-700 hover:bg-sky-600 hover:text-white border border-sky-300 transition shadow-sm" title="Abrir pasta de fotos e laudos no Google Drive">
+                        <i class="fa-brands fa-google-drive text-sm"></i>
+                      </a>
+                    </template>
+                    <template x-if="!obterLinkDrive(d)">
+                      <span class="text-slate-300 text-xs">-</span>
+                    </template>
+                  </td>
+
                   <td class="p-4 text-center">
                     <div class="flex items-center justify-center gap-1.5 flex-wrap">
                       <button @click="visualizarDemanda(d)" class="text-slate-700 hover:text-sky-700 text-xs font-semibold px-2 py-1 border border-slate-300 rounded hover:bg-slate-100 transition" title="Detalhes e Despachos">
                         <i class="fa-regular fa-eye"></i>
                       </button>
 
-                      <!-- BOTÃO MUDAR STATUS -->
                       <button 
                         @click="avancarStatus(d)" 
                         class="text-xs font-semibold px-2 py-1 border border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-600 hover:text-white rounded transition flex items-center gap-1" 
@@ -303,7 +316,6 @@
                         <i class="fa-solid fa-arrows-rotate text-[10px]"></i> Mudar
                       </button>
                       
-                      <!-- BOTÃO ARQUIVAR / DESARQUIVAR -->
                       <button 
                         @click="alternarArquivamento(d)" 
                         class="text-xs font-semibold px-2 py-1 border rounded transition flex items-center gap-1"
@@ -438,7 +450,7 @@
       </div>
     </div>
 
-    <!-- ==================== ABA 4: CALENDÁRIO COM FERIADOS (NACIONAL, RJ E SAQUAREMA) ==================== -->
+    <!-- ==================== ABA 4: CALENDÁRIO COM FERIADOS ==================== -->
     <div x-show="abaAtiva === 'calendario'" x-cloak class="space-y-6">
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
@@ -455,7 +467,6 @@
             </div>
           </div>
 
-          <!-- Legenda de Feriados -->
           <div class="flex items-center gap-4 text-[11px] text-slate-500 mb-3 px-1">
             <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Feriados Oficiais (Nacional / RJ / Saquarema)</span>
             <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Reunião</span>
@@ -487,12 +498,10 @@
                 </div>
 
                 <div class="space-y-1 mt-1 overflow-hidden">
-                  <!-- Tag do feriado no dia -->
                   <template x-if="diaObj.feriado">
                     <div class="text-[9px] truncate px-1 py-0.5 rounded bg-rose-100 text-rose-800 font-bold border border-rose-200" :title="diaObj.feriado.nome" x-text="diaObj.feriado.nome"></div>
                   </template>
 
-                  <!-- Compromissos agendados -->
                   <template x-for="r in obterCompromissosDoDia(diaObj.dataIso).slice(0, 2)" :key="r.id">
                     <div 
                       class="text-[10px] truncate px-1 py-0.5 rounded font-medium flex items-center gap-1"
@@ -508,7 +517,7 @@
           </div>
         </div>
 
-        <!-- Painel Lateral: Compromissos do Dia e Feriado em Destaque -->
+        <!-- Painel Lateral: Compromissos do Dia -->
         <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex flex-col justify-between">
           <div>
             <div class="flex justify-between items-center mb-3 pb-2 border-b">
@@ -526,7 +535,7 @@
               </div>
             </div>
 
-            <!-- Card Destaque de Feriado no dia selecionado -->
+            <!-- Card Destaque de Feriado -->
             <div x-show="feriadoDoDiaSelecionado" class="mb-3 p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5 text-xs">
               <i class="fa-solid fa-calendar-check text-rose-600 text-base mt-0.5"></i>
               <div>
@@ -650,6 +659,14 @@
             </div>
           </div>
 
+          <!-- CAMPO DRIVE PARA VISITAS IN LOCO -->
+          <div class="bg-sky-50/70 p-3 rounded-lg border border-sky-200">
+            <label class="block text-xs font-bold text-sky-950 mb-1 flex items-center gap-1.5">
+              <i class="fa-brands fa-google-drive text-sky-700"></i> Pasta de Fotos e Documentos (Drive)
+            </label>
+            <input type="url" x-model="formVisita.link_drive" placeholder="https://drive.google.com/drive/folders/..." class="w-full border rounded px-3 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-sky-500">
+          </div>
+
           <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Relatório da Visita & Achados in loco *</label>
             <textarea x-model="formVisita.descricao" required rows="4" class="w-full border rounded px-3 py-1.5 text-sm" placeholder="Descreva os achados da fiscalização em campo: cumprimento de escala, presença de médicos/enfermagem, farmácia, etc."></textarea>
@@ -731,7 +748,7 @@
       </div>
     </div>
 
-    <!-- MODAL DE CADASTRO OU EDIÇÃO DE DEMANDA -->
+    <!-- MODAL DE CADASTRO OU EDIÇÃO DE DEMANDA (COM CAMPO GOOGLE DRIVE) -->
     <div x-show="abrirModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
       <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto" @click.away="abrirModal = false">
         
@@ -795,6 +812,15 @@
               <option value="Concluída">Concluída (Finalizada)</option>
               <option value="Arquivada">Arquivada (Histórico/Acervo)</option>
             </select>
+          </div>
+
+          <!-- NOVO CAMPO: LINK DO GOOGLE DRIVE -->
+          <div class="bg-sky-50/70 p-3 rounded-lg border border-sky-200">
+            <label class="block text-xs font-bold text-sky-950 mb-1 flex items-center gap-1.5">
+              <i class="fa-brands fa-google-drive text-sky-700"></i> Pasta de Documentos e Fotos (Google Drive)
+            </label>
+            <input type="url" x-model="formDemanda.link_drive" placeholder="https://drive.google.com/drive/folders/..." class="w-full border rounded px-3 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-sky-500">
+            <span class="text-[10px] text-slate-500 mt-1 block">Cole o link da pasta na nuvem com relatórios, laudos e fotos da vistoria.</span>
           </div>
 
           <div>
@@ -907,8 +933,7 @@
                   :class="{
                     'bg-slate-200 text-slate-800 border border-slate-300': demandaVisualizada.status === 'Arquivada',
                     'bg-emerald-100 text-emerald-700': demandaVisualizada.status === 'Concluída',
-                    'bg-amber-100 text-amber-700': demandaVisualizada.status === 'Em andamento',
-                    'bg-blue-100 text-blue-700': demandaVisualizada.status === 'Triagem'
+                    'bg-amber-100 text-amber-700': demandaVisualizada.status === 'Em andamento'
                   }"
                   x-text="demandaVisualizada.status"></span>
               </div>
@@ -927,6 +952,20 @@
               <span class="text-xs text-slate-500 block mb-0.5 font-medium">Responsável / Auditor</span>
               <span class="font-semibold text-slate-800" x-text="demandaVisualizada.responsavel_atribuido || 'Não atribuído'"></span>
             </div>
+          </div>
+
+          <!-- BOTÃO EM DESTAQUE DO GOOGLE DRIVE NOS DETALHES -->
+          <div x-show="obterLinkDrive(demandaVisualizada)" class="p-3 bg-sky-50 border border-sky-200 rounded-lg flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i class="fa-brands fa-google-drive text-sky-700 text-lg"></i>
+              <div>
+                <span class="text-xs font-bold text-sky-950 block">Pasta de Documentos e Fotos da Demanda</span>
+                <span class="text-[11px] text-slate-500">Acesse arquivos, fotos da vistoria e laudos em nuvem</span>
+              </div>
+            </div>
+            <a :href="obterLinkDrive(demandaVisualizada)" target="_blank" class="px-3 py-1.5 bg-sky-700 hover:bg-sky-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition">
+              Abrir Pasta no Drive <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+            </a>
           </div>
 
           <div class="bg-slate-50 p-3.5 rounded-lg border border-slate-200" x-if="demandaVisualizada">
@@ -1486,7 +1525,8 @@
           prazo_fatal: '',
           descricao: '',
           responsavel_atribuido: 'Comissão de Auditoria',
-          status: 'Triagem'
+          status: 'Triagem',
+          link_drive: ''
         },
 
         formVisita: {
@@ -1500,7 +1540,8 @@
           hora_apenas: '09:00',
           prazo_fatal: '',
           descricao: '',
-          responsavel_atribuido: ''
+          responsavel_atribuido: '',
+          link_drive: ''
         },
 
         formReuniao: {
@@ -1579,6 +1620,17 @@
           }
         },
 
+        // --- GOOGLE DRIVE: EXTRAÇÃO AUTOMÁTICA DE LINK ---
+        obterLinkDrive(d) {
+          if (!d) return null;
+          if (d.link_drive && d.link_drive.trim() !== '') return d.link_drive.trim();
+          if (d.descricao && d.descricao.includes('[DRIVE:')) {
+            const match = d.descricao.match(/\[DRIVE:\s*(https?:\/\/[^\]]+)\]/);
+            if (match && match[1]) return match[1].trim();
+          }
+          return null;
+        },
+
         // --- CÁLCULO DE FERIADOS: NACIONAL, ESTADUAL (RJ) E MUNICIPAL (SAQUAREMA) ---
         calcularPascoa(ano) {
           const a = ano % 19;
@@ -1638,7 +1690,7 @@
           const sextaSantaIso = `${ano}-${String(sextaSanta.getMonth() + 1).padStart(2, '0')}-${String(sextaSanta.getDate()).padStart(2, '0')}`;
           adicionar(sextaSantaIso, 'Sexta-feira Santa', 'Feriado Nacional', 'Paixão de Cristo');
 
-          // Corpus Christi (60 dias após a Páscoa) - Ponto Facultativo / Municipal
+          // Corpus Christi (60 dias após a Páscoa) - Ponto Facultativo / Tradição
           const corpus = new Date(pascoa);
           corpus.setDate(pascoa.getDate() + 60);
           const corpusIso = `${ano}-${String(corpus.getMonth() + 1).padStart(2, '0')}-${String(corpus.getDate()).padStart(2, '0')}`;
@@ -1775,7 +1827,8 @@
             hora_apenas: '09:30',
             prazo_fatal: '',
             descricao: '',
-            responsavel_atribuido: 'Auditor Rafael Reis'
+            responsavel_atribuido: 'Auditor Rafael Reis',
+            link_drive: ''
           };
           this.abrirModalVisita = true;
         },
@@ -1796,7 +1849,8 @@
               data_apenas: dataParte,
               hora_apenas: horaParte,
               descricao: c.descricao || '',
-              responsavel_atribuido: c.responsavel_atribuido || ''
+              responsavel_atribuido: c.responsavel_atribuido || '',
+              link_drive: this.obterLinkDrive(c) || ''
             };
             this.abrirModalVisita = true;
           } else {
@@ -1884,6 +1938,7 @@
               prazo_fatal: dataFinalIso,
               descricao: this.formVisita.descricao,
               responsavel_atribuido: this.formVisita.responsavel_atribuido,
+              link_drive: this.formVisita.link_drive ? this.formVisita.link_drive.trim() : null,
               status: 'Concluída'
             };
 
@@ -2029,7 +2084,8 @@
             prazo_fatal: '',
             descricao: '',
             responsavel_atribuido: 'Comissão de Auditoria',
-            status: 'Triagem'
+            status: 'Triagem',
+            link_drive: ''
           };
           this.abrirModal = true;
         },
@@ -2046,7 +2102,8 @@
             prazo_fatal: demanda.prazo_fatal ? demanda.prazo_fatal.substring(0, 10) : '',
             descricao: demanda.descricao || '',
             responsavel_atribuido: demanda.responsavel_atribuido || 'Comissão de Auditoria',
-            status: demanda.status || 'Triagem'
+            status: demanda.status || 'Triagem',
+            link_drive: this.obterLinkDrive(demanda) || ''
           };
           this.abrirModal = true;
         },
@@ -2056,7 +2113,8 @@
           try {
             const payload = {
               ...this.formDemanda,
-              unidade_id: this.formDemanda.unidade_id || null
+              unidade_id: this.formDemanda.unidade_id || null,
+              link_drive: this.formDemanda.link_drive ? this.formDemanda.link_drive.trim() : null
             };
 
             const url = this.editandoId 
@@ -2387,7 +2445,7 @@
             return;
           }
 
-          const cabecalho = ['Protocolo', 'Origem', 'Unidade Alvo', 'Esfera Gestao', 'Eixo', 'Risco', 'Data / Prazo', 'Status', 'Responsavel'];
+          const cabecalho = ['Protocolo', 'Origem', 'Unidade Alvo', 'Esfera Gestao', 'Eixo', 'Risco', 'Data / Prazo', 'Status', 'Responsavel', 'Link Drive'];
           const linhas = this.demandasFiltradas.map(d => [
             `"${d.protocolo || ''}"`,
             `"${d.origem || ''}"`,
@@ -2397,7 +2455,8 @@
             `"${d.grau_risco || ''}"`,
             `"${this.formatarDataComHora(d.prazo_fatal)}"`,
             `"${d.status || ''}"`,
-            `"${d.responsavel_atribuido || ''}"`
+            `"${d.responsavel_atribuido || ''}"`,
+            `"${this.obterLinkDrive(d) || ''}"`
           ]);
 
           const conteudo = [cabecalho.join(';'), ...linhas.map(l => l.join(';'))].join('\n');
