@@ -218,8 +218,6 @@
               <button @click="filtroRapido = 'concluidas'" :class="filtroRapido === 'concluidas' ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1.5 rounded-lg transition">Concluídas</button>
               <button @click="filtroRapido = 'os'" :class="filtroRapido === 'os' ? 'bg-purple-800 text-white' : 'bg-slate-100 text-purple-700 hover:bg-purple-50'" class="px-3 py-1.5 rounded-lg transition">Só O.S.</button>
               <button @click="filtroRapido = 'municipio'" :class="filtroRapido === 'municipio' ? 'bg-sky-700 text-white' : 'bg-slate-100 text-sky-700 hover:bg-sky-50'" class="px-3 py-1.5 rounded-lg transition">Só Município</button>
-              
-              <!-- FILTRO: ARQUIVADAS -->
               <button @click="filtroRapido = 'arquivadas'" :class="filtroRapido === 'arquivadas' ? 'bg-slate-700 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'" class="px-3 py-1.5 rounded-lg transition flex items-center gap-1">
                 <i class="fa-solid fa-box-archive"></i> Arquivadas (<span x-text="demandasArquivadas.length"></span>)
               </button>
@@ -935,8 +933,7 @@
                   :class="{
                     'bg-slate-200 text-slate-800 border border-slate-300': demandaVisualizada.status === 'Arquivada',
                     'bg-emerald-100 text-emerald-700': demandaVisualizada.status === 'Concluída',
-                    'bg-amber-100 text-amber-700': demandaVisualizada.status === 'Em andamento',
-                    'bg-blue-100 text-blue-700': demandaVisualizada.status === 'Triagem'
+                    'bg-amber-100 text-amber-700': demandaVisualizada.status === 'Em andamento'
                   }"
                   x-text="demandaVisualizada.status"></span>
               </div>
@@ -957,7 +954,7 @@
             </div>
           </div>
 
-          <!-- BOTÃO EM DESTAQUE DO GOOGLE DRIVE (SÓ EXIBE SE HOUVER LINK) -->
+          <!-- BOTÃO EM DESTAQUE DO GOOGLE DRIVE -->
           <div x-show="obterLinkDrive(demandaVisualizada)" class="p-3 bg-sky-50 border border-sky-200 rounded-lg flex items-center justify-between">
             <div class="flex items-center gap-2">
               <i class="fa-brands fa-google-drive text-sky-700 text-lg"></i>
@@ -1063,7 +1060,7 @@
             </div>
             
             <div class="divide-y border rounded-lg overflow-hidden bg-white max-h-60 overflow-y-auto">
-              <template x-for="u in units" :key="u.id">
+              <template x-for="u in unidades" :key="u.id">
                 <div class="p-3 flex items-center justify-between hover:bg-slate-50 transition text-sm">
                   <div>
                     <p class="font-bold text-slate-800 text-xs sm:text-sm" x-text="u.nome_fantasia"></p>
@@ -1949,11 +1946,13 @@
             const horaDefinida = this.formVisita.hora_apenas || '09:00';
             let descricaoFinal = this.formVisita.descricao || '';
             
+            // Grava a hora garantida no texto
             descricaoFinal = `[HORA: ${horaDefinida}]\n` + descricaoFinal;
 
-            const linkLimpo = (this.formVisita.link_drive && this.formVisita.link_drive.trim() !== '') 
-              ? this.formVisita.link_drive.trim() 
-              : null;
+            // Anexa o link do Drive no texto para evitar erro de schema de banco
+            if (this.formVisita.link_drive && this.formVisita.link_drive.trim() !== '') {
+              descricaoFinal = `[DRIVE: ${this.formVisita.link_drive.trim()}]\n` + descricaoFinal;
+            }
 
             const payload = {
               protocolo: (this.formVisita.protocolo || '').trim().slice(0, 30),
@@ -1965,7 +1964,6 @@
               prazo_fatal: dataFinalIso,
               descricao: descricaoFinal,
               responsavel_atribuido: this.formVisita.responsavel_atribuido,
-              link_drive: linkLimpo,
               status: 'Concluída'
             };
 
@@ -2127,7 +2125,7 @@
             tipo_fiscalizacao: demanda.tipo_fiscalizacao || 'Assistencial',
             grau_risco: demanda.grau_risco || 'Médio',
             prazo_fatal: demanda.prazo_fatal ? demanda.prazo_fatal.substring(0, 10) : '',
-            descricao: demanda.descricao || '',
+            descricao: this.limparTextoDescricao(demanda.descricao),
             responsavel_atribuido: demanda.responsavel_atribuido || 'Comissão de Auditoria',
             status: demanda.status || 'Triagem',
             link_drive: this.obterLinkDrive(demanda) || ''
@@ -2138,14 +2136,24 @@
         async salvarDemanda() {
           this.salvando = true;
           try {
-            const linkLimpo = (this.formDemanda.link_drive && this.formDemanda.link_drive.trim() !== '') 
-              ? this.formDemanda.link_drive.trim() 
-              : null;
+            let descricaoFinal = this.formDemanda.descricao || '';
+            
+            // Anexa o link do Drive na descrição se houver, sem enviar como coluna direta
+            if (this.formDemanda.link_drive && this.formDemanda.link_drive.trim() !== '') {
+              descricaoFinal = `[DRIVE: ${this.formDemanda.link_drive.trim()}]\n` + descricaoFinal;
+            }
 
             const payload = {
-              ...this.formDemanda,
+              protocolo: this.formDemanda.protocolo,
+              origem: this.formDemanda.origem,
               unidade_id: this.formDemanda.unidade_id || null,
-              link_drive: linkLimpo
+              esfera_gestao: this.formDemanda.esfera_gestao,
+              tipo_fiscalizacao: this.formDemanda.tipo_fiscalizacao,
+              grau_risco: this.formDemanda.grau_risco,
+              prazo_fatal: this.formDemanda.prazo_fatal || null,
+              descricao: descricaoFinal,
+              responsavel_atribuido: this.formDemanda.responsavel_atribuido,
+              status: this.formDemanda.status || 'Triagem'
             };
 
             const url = this.editandoId 
