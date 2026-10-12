@@ -123,7 +123,7 @@ app.delete('/api/unidades/:id', async (req, res) => {
   }
 });
 
-// Cadastrar demanda ou visita in loco
+// Cadastrar demanda ou visita in loco (com link_drive)
 app.post('/api/demandas', async (req, res) => {
   const { 
     protocolo, 
@@ -136,7 +136,8 @@ app.post('/api/demandas', async (req, res) => {
     responsavel_atribuido, 
     numero_sei,
     esfera_gestao,
-    status
+    status,
+    link_drive
   } = req.body;
 
   try {
@@ -147,8 +148,10 @@ app.post('/api/demandas', async (req, res) => {
       limpaUnidadeId = unidade_id;
     }
 
+    const protocoloTratado = (protocolo || 'SEM PROTOCOLO').trim().slice(0, 30);
+
     const payload = {
-      protocolo: protocolo || 'SEM PROTOCOLO',
+      protocolo: protocoloTratado,
       origem: origem || 'Rotina da Subsecretaria',
       tipo_fiscalizacao: tipo_fiscalizacao || 'Assistencial',
       grau_risco: grau_risco || 'Médio',
@@ -160,8 +163,10 @@ app.post('/api/demandas', async (req, res) => {
     };
 
     if (esfera_gestao) payload.esfera_gestao = esfera_gestao;
+    if (link_drive) payload.link_drive = link_drive.trim();
+
     if (numero_sei && typeof numero_sei === 'string' && numero_sei.trim() !== '') {
-      payload.numero_sei = numero_sei.trim();
+      payload.numero_sei = numero_sei.trim().slice(0, 30);
     }
 
     let { data, error } = await supabase
@@ -169,7 +174,22 @@ app.post('/api/demandas', async (req, res) => {
       .insert([payload])
       .select();
 
-    // Fallback caso a coluna esfera_gestao não exista no Supabase
+    // Fallback se a coluna link_drive ainda não existir na tabela
+    if (error && error.message && error.message.includes('link_drive')) {
+      const linkAnexo = payload.link_drive;
+      delete payload.link_drive;
+      if (linkAnexo) {
+        payload.descricao = `[DRIVE: ${linkAnexo}]\n` + payload.descricao;
+      }
+      const fallback = await supabase
+        .from('demandas')
+        .insert([payload])
+        .select();
+      data = fallback.data;
+      error = fallback.error;
+    }
+
+    // Fallback se a coluna esfera_gestao não existir
     if (error && error.message && error.message.includes('esfera_gestao')) {
       delete payload.esfera_gestao;
       payload.descricao = `[GESTÃO: ${esfera_gestao || 'Administração Municipal (Direta)'}]\n` + payload.descricao;
@@ -193,7 +213,7 @@ app.post('/api/demandas', async (req, res) => {
   }
 });
 
-// Handler único e seguro para ATUALIZAR Demanda (compatível com PUT e PATCH)
+// Handler único e seguro para ATUALIZAR Demanda (com link_drive)
 const atualizarDemandaHandler = async (req, res) => {
   const { id } = req.params;
   const { 
@@ -206,7 +226,8 @@ const atualizarDemandaHandler = async (req, res) => {
     descricao, 
     responsavel_atribuido, 
     esfera_gestao,
-    status 
+    status,
+    link_drive
   } = req.body;
 
   try {
@@ -223,7 +244,7 @@ const atualizarDemandaHandler = async (req, res) => {
     }
 
     const payload = {
-      protocolo: protocolo || 'SEM PROTOCOLO',
+      protocolo: (protocolo || 'SEM PROTOCOLO').trim().slice(0, 30),
       origem: origem || 'Rotina da Subsecretaria',
       tipo_fiscalizacao: tipo_fiscalizacao || 'Assistencial',
       grau_risco: grau_risco || 'Médio',
@@ -235,15 +256,31 @@ const atualizarDemandaHandler = async (req, res) => {
 
     if (status) payload.status = status;
     if (esfera_gestao) payload.esfera_gestao = esfera_gestao;
+    if (link_drive !== undefined) payload.link_drive = link_drive ? link_drive.trim() : null;
 
-    // Atualização com select simples (sem joins que causam falhas no PostgREST)
     let { data, error } = await supabase
       .from('demandas')
       .update(payload)
       .eq('id', id)
       .select();
 
-    // Fallback seguro caso a coluna esfera_gestao não exista no Supabase
+    // Fallback se link_drive não existir na tabela
+    if (error && error.message && error.message.includes('link_drive')) {
+      const linkAnexo = payload.link_drive;
+      delete payload.link_drive;
+      if (linkAnexo && !payload.descricao.includes(linkAnexo)) {
+        payload.descricao = `[DRIVE: ${linkAnexo}]\n` + payload.descricao;
+      }
+      const fallback = await supabase
+        .from('demandas')
+        .update(payload)
+        .eq('id', id)
+        .select();
+      data = fallback.data;
+      error = fallback.error;
+    }
+
+    // Fallback se esfera_gestao não existir
     if (error && error.message && error.message.includes('esfera_gestao')) {
       delete payload.esfera_gestao;
       const fallback = await supabase
