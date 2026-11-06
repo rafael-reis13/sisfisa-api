@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SIS-FISA | Subsecretaria de Fiscalização e Avaliação da Saúde</title>
   
-  <!-- Configurações PWA (Aplicativo) -->
+  <!-- Configurações PWA -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#082f49">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -89,7 +89,7 @@
       </div>
 
       <!-- Seletor de Módulos -->
-      <div class="flex items-center bg-sky-900 p-1 rounded-xl border border-sky-700">
+      <div class="flex items-center bg-sky-900 p-1 rounded-xl border border-sky-700 flex-wrap justify-center gap-1">
         <button 
           @click="mudarAba('fiscalizacoes')" 
           :class="abaAtiva === 'fiscalizacoes' ? 'bg-sky-600 text-white shadow' : 'text-sky-200 hover:text-white'"
@@ -113,6 +113,12 @@
           :class="abaAtiva === 'calendario' ? 'bg-sky-600 text-white shadow' : 'text-sky-200 hover:text-white'"
           class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5">
           <i class="fa-solid fa-calendar-days"></i> Calendário
+        </button>
+        <button 
+          @click="mudarAba('contatos')" 
+          :class="abaAtiva === 'contatos' ? 'bg-sky-600 text-white shadow' : 'text-sky-200 hover:text-white'"
+          class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5">
+          <i class="fa-solid fa-address-book"></i> Agenda
         </button>
       </div>
 
@@ -176,7 +182,7 @@
                   <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700" x-text="item.grau_risco"></span>
                 </div>
                 <p class="text-xs text-slate-600 truncate font-medium" x-text="item.unidade_nome || 'Unidade Geral'"></p>
-                <p class="text-[11px] text-slate-500 line-clamp-1 mt-0.5" x-text="item.descricao"></p>
+                <p class="text-[11px] text-slate-500 line-clamp-1 mt-0.5" x-text="limparTextoDescricao(item.descricao)"></p>
               </div>
 
               <div class="flex justify-between items-center mt-3 pt-2 border-t border-slate-100 text-xs">
@@ -291,7 +297,7 @@
                       x-text="d.status"></span>
                   </td>
                   
-                  <!-- ÍCONE DO GOOGLE DRIVE NA TABELA -->
+                  <!-- Ícone do Google Drive -->
                   <td class="p-4 text-center">
                     <template x-if="obterLinkDrive(d)">
                       <a :href="obterLinkDrive(d)" target="_blank" class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-sky-50 text-sky-700 hover:bg-sky-600 hover:text-white border border-sky-300 transition shadow-sm" title="Abrir pasta de fotos e laudos no Google Drive">
@@ -467,7 +473,8 @@
             </div>
           </div>
 
-          <div class="flex items-center gap-4 text-[11px] text-slate-500 mb-3 px-1">
+          <!-- Legenda -->
+          <div class="flex items-center gap-4 text-[11px] text-slate-500 mb-3 px-1 flex-wrap">
             <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Feriados Oficiais (Nacional / RJ / Saquarema)</span>
             <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Reunião</span>
             <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Visita in loco</span>
@@ -595,881 +602,159 @@
       </div>
     </div>
 
-    <!-- MODAL: REGISTRAR / EDITAR VISITA IN LOCO -->
-    <div x-show="abrirModalVisita" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
-      <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto" @click.away="abrirModalVisita = false">
-        
+    <!-- ==================== ABA 5: AGENDA DE CONTATOS ==================== -->
+    <div x-show="abaAtiva === 'contatos'" x-cloak class="space-y-6">
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div>
+          <h2 class="font-bold text-lg text-slate-800 flex items-center gap-2">
+            <i class="fa-solid fa-address-book text-sky-700"></i> Agenda de Contatos Institucionais & Saúde
+          </h2>
+          <p class="text-xs text-slate-500">Direção hospitalar, coordenações de atenção básica, comissões de fiscalização e órgãos de controle</p>
+        </div>
+        <button @click="abrirModalNovoContato()" class="bg-sky-700 hover:bg-sky-600 text-white px-3.5 py-2 rounded-lg font-semibold text-xs sm:text-sm flex items-center transition shadow-sm">
+          <i class="fa-solid fa-user-plus mr-1.5"></i> Novo Contato
+        </button>
+      </div>
+
+      <!-- Barra de Filtros e Busca da Agenda -->
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+        <div class="flex flex-wrap gap-1.5 text-xs font-medium">
+          <button @click="filtroCategoriaContato = 'todos'" :class="filtroCategoriaContato === 'todos' ? 'bg-sky-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1.5 rounded-lg transition">Todos</button>
+          <button @click="filtroCategoriaContato = 'Direção Hospitalar'" :class="filtroCategoriaContato === 'Direção Hospitalar' ? 'bg-sky-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1.5 rounded-lg transition">Direção Hospitalar</button>
+          <button @click="filtroCategoriaContato = 'Atenção Básica'" :class="filtroCategoriaContato === 'Atenção Básica' ? 'bg-sky-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1.5 rounded-lg transition">Atenção Básica</button>
+          <button @click="filtroCategoriaContato = 'Órgãos de Controle'" :class="filtroCategoriaContato === 'Órgãos de Controle' ? 'bg-sky-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1.5 rounded-lg transition">Órgãos de Controle</button>
+          <button @click="filtroCategoriaContato = 'Organização Social'" :class="filtroCategoriaContato === 'Organização Social' ? 'bg-sky-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1.5 rounded-lg transition">Organização Social</button>
+        </div>
+
+        <div class="w-full sm:w-72 relative">
+          <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+          <input type="text" x-model="buscaContatos" placeholder="Pesquisar por nome, cargo ou órgão..." class="w-full pl-8 pr-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-sky-500">
+        </div>
+      </div>
+
+      <!-- Grade de Contatos -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <template x-for="c in contatosFiltrados" :key="c.id">
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition">
+            <div>
+              <div class="flex justify-between items-start gap-2 mb-2 pb-2 border-b">
+                <div>
+                  <h3 class="font-bold text-sm text-slate-800" x-text="c.nome"></h3>
+                  <p class="text-xs font-semibold text-sky-700" x-text="c.cargo"></p>
+                </div>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border" x-text="c.categoria"></span>
+              </div>
+
+              <div class="space-y-1.5 text-xs text-slate-600 mt-2">
+                <p class="font-medium text-slate-700 flex items-center gap-1.5">
+                  <i class="fa-solid fa-building text-slate-400 w-4"></i>
+                  <span x-text="c.orgao_unidade"></span>
+                </p>
+
+                <p x-show="c.telefone" class="flex items-center gap-1.5">
+                  <i class="fa-solid fa-phone text-slate-400 w-4"></i>
+                  <a :href="'tel:' + c.telefone" class="hover:text-sky-700 font-mono text-xs" x-text="c.telefone"></a>
+                </p>
+
+                <p x-show="c.email" class="flex items-center gap-1.5">
+                  <i class="fa-solid fa-envelope text-slate-400 w-4"></i>
+                  <a :href="'mailto:' + c.email" class="hover:text-sky-700 text-xs truncate max-w-[220px]" x-text="c.email"></a>
+                </p>
+
+                <p x-show="c.observacao" class="text-[11px] text-slate-500 italic mt-2 pt-2 border-t border-slate-100 line-clamp-2" x-text="c.observacao"></p>
+              </div>
+            </div>
+
+            <div class="flex justify-between items-center mt-4 pt-3 border-t border-slate-100 text-xs">
+              <div class="flex gap-2">
+                <template x-if="c.telefone">
+                  <a :href="'https://wa.me/55' + c.telefone.replace(/\D/g, '')" target="_blank" class="px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-600 hover:text-white rounded-lg text-xs font-semibold transition flex items-center gap-1">
+                    <i class="fa-brands fa-whatsapp"></i> WhatsApp
+                  </a>
+                </template>
+              </div>
+
+              <div class="flex gap-2">
+                <button @click="iniciarEdicaoContato(c)" class="text-amber-700 hover:underline font-bold text-xs">Editar</button>
+                <button @click="excluirContato(c.id, c.nome)" class="text-rose-600 hover:underline font-bold text-xs">Excluir</button>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <template x-if="contatosFiltrados.length === 0">
+          <div class="col-span-full p-8 text-center bg-white rounded-xl border border-dashed border-slate-300 text-slate-500 text-xs">
+            <i class="fa-solid fa-address-book text-3xl mb-2 text-slate-300 block"></i>
+            Nenhum contato encontrado com os filtros selecionados.
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- MODAL: CADASTRAR / EDITAR CONTATO -->
+    <div x-show="abrirModalContato" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
+      <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto" @click.away="abrirModalContato = false">
         <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
-          <span class="p-1.5 bg-amber-100 text-amber-800 rounded-lg text-sm">
-            <i class="fa-solid fa-location-dot"></i>
-          </span>
-          <span x-text="editandoCompromissoId ? 'Editar Visita in loco' : 'Registrar Visita / Fiscalização in loco'"></span>
+          <span class="p-1.5 bg-sky-100 text-sky-800 rounded-lg text-sm"><i class="fa-solid fa-user-plus"></i></span>
+          <span x-text="editandoContatoId ? 'Editar Contato' : 'Cadastrar Novo Contato'"></span>
         </h3>
 
-        <form @submit.prevent="salvarVisitaInLoco" class="space-y-4">
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Identificação / Protocolo *</label>
-            <input type="text" x-model="formVisita.protocolo" required class="w-full border rounded px-3 py-1.5 text-sm" placeholder="Ex: VISTORIA-2026/01">
+        <form @submit.prevent="salvarContato" class="space-y-4">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Nome Completo *</label>
+              <input type="text" x-model="formContato.nome" required placeholder="Ex: Dr. Carlos Eduardo" class="w-full border rounded px-3 py-1.5 text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Cargo / Função *</label>
+              <input type="text" x-model="formContato.cargo" required placeholder="Ex: Diretor Técnico" class="w-full border rounded px-3 py-1.5 text-sm">
+            </div>
           </div>
 
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Data da Inspeção *</label>
-              <input type="date" x-model="formVisita.data_apenas" required class="w-full border rounded px-3 py-1.5 text-sm bg-white">
+              <label class="block text-xs font-medium text-slate-600 mb-1">Órgão / Unidade de Saúde *</label>
+              <input type="text" x-model="formContato.orgao_unidade" required placeholder="Ex: Hospital Municipal" class="w-full border rounded px-3 py-1.5 text-sm">
             </div>
             <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Horário Marcado</label>
-              <input type="time" x-model="formVisita.hora_apenas" class="w-full border rounded px-3 py-1.5 text-sm bg-white font-mono">
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Unidade Inspecionada *</label>
-              <select x-model="formVisita.unidade_id" required class="w-full border rounded px-3 py-1.5 text-sm bg-white font-medium">
-                <option value="">Selecione a unidade de saúde...</option>
-                <template x-for="u in unidades" :key="u.id">
-                  <option :value="u.id" x-text="u.nome_fantasia"></option>
-                </template>
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Esfera de Gestão *</label>
-              <select x-model="formVisita.esfera_gestao" class="w-full border rounded px-3 py-1.5 text-sm bg-white font-medium">
-                <option value="Administração Municipal (Direta)">Administração Municipal (Direta)</option>
-                <option value="Organização Social (OS)">Organização Social (OS)</option>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Categoria *</label>
+              <select x-model="formContato.categoria" class="w-full border rounded px-3 py-1.5 text-sm bg-white">
+                <option value="Direção Hospitalar">Direção Hospitalar</option>
+                <option value="Atenção Básica">Atenção Básica</option>
+                <option value="Órgãos de Controle">Órgãos de Controle</option>
+                <option value="Organização Social">Organização Social</option>
+                <option value="Outros">Outros</option>
               </select>
             </div>
           </div>
 
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Auditor / Equipe Responsável *</label>
-              <input type="text" x-model="formVisita.responsavel_atribuido" required placeholder="Ex: Auditor Rafael Reis" class="w-full border rounded px-3 py-1.5 text-sm">
+              <label class="block text-xs font-medium text-slate-600 mb-1">Telefone / Celular</label>
+              <input type="text" x-model="formContato.telefone" placeholder="Ex: (22) 99999-9999" class="w-full border rounded px-3 py-1.5 text-sm font-mono">
             </div>
             <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Gravidade / Risco Apurado</label>
-              <select x-model="formVisita.grau_risco" class="w-full border rounded px-3 py-1.5 text-sm">
-                <option>Médio</option>
-                <option>Alto</option>
-                <option>Crítico</option>
-                <option>Baixo</option>
-              </select>
+              <label class="block text-xs font-medium text-slate-600 mb-1">E-mail Institucional</label>
+              <input type="email" x-model="formContato.email" placeholder="Ex: contato@saquarema.rj.gov.br" class="w-full border rounded px-3 py-1.5 text-sm">
             </div>
-          </div>
-
-          <!-- CAMPO DRIVE PARA VISITAS IN LOCO (TOTALMENTE OPCIONAL) -->
-          <div class="bg-sky-50/70 p-3 rounded-lg border border-sky-200">
-            <label class="block text-xs font-bold text-sky-950 mb-1 flex items-center gap-1.5">
-              <i class="fa-brands fa-google-drive text-sky-700"></i> Pasta de Fotos e Documentos (Drive) <span class="text-[10px] font-normal text-slate-500">(opcional)</span>
-            </label>
-            <input type="text" x-model="formVisita.link_drive" placeholder="Cole o link da pasta se houver, ou deixe em branco" class="w-full border rounded px-3 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-sky-500">
           </div>
 
           <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Relatório da Visita & Achados in loco *</label>
-            <textarea x-model="formVisita.descricao" required rows="4" class="w-full border rounded px-3 py-1.5 text-sm" placeholder="Descreva os achados da fiscalização em campo: cumprimento de escala, presença de médicos/enfermagem, farmácia, etc."></textarea>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Observações / Horário de Plantão</label>
+            <textarea x-model="formContato.observacao" rows="2" placeholder="Ex: Plantões às terças e quintas..." class="w-full border rounded px-3 py-1.5 text-sm"></textarea>
           </div>
 
           <div class="flex justify-end gap-2 pt-4 border-t">
-            <button type="button" @click="abrirModalVisita = false" class="px-4 py-2 border rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
-            <button type="submit" :disabled="salvando" class="px-4 py-2 bg-amber-700 text-white rounded-lg text-xs font-bold hover:bg-amber-600 flex items-center shadow">
-              <span x-show="!salvando" x-text="editandoCompromissoId ? 'Atualizar Visita' : 'Salvar Visita in loco'"></span>
-              <span x-show="salvando"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...</span>
+            <button type="button" @click="abrirModalContato = false" class="px-4 py-2 border rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
+            <button type="submit" class="px-4 py-2 bg-sky-700 text-white rounded-lg text-xs font-bold hover:bg-sky-600 flex items-center shadow">
+              <span x-text="editandoContatoId ? 'Atualizar Contato' : 'Salvar Contato'"></span>
             </button>
           </div>
         </form>
-      </div>
-    </div>
-
-    <!-- MODAL: AGENDAR / EDITAR REUNIÃO -->
-    <div x-show="abrirModalNovaReuniao" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
-      <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto" @click.away="abrirModalNovaReuniao = false">
-        <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
-          <span class="p-1.5 bg-emerald-100 text-emerald-800 rounded-lg text-sm"><i class="fa-solid fa-calendar-plus"></i></span>
-          <span x-text="editandoCompromissoId ? 'Editar Reunião / Alinhamento' : 'Agendar Reunião / Alinhamento'"></span>
-        </h3>
-
-        <form @submit.prevent="salvarReuniao" class="space-y-4">
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Título / Pauta da Reunião *</label>
-            <input type="text" x-model="formReuniao.protocolo" required placeholder="Ex: Alinhamento com Direção da UPA sobre escalas" class="w-full border rounded px-3 py-1.5 text-sm">
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Data da Reunião *</label>
-              <input type="date" x-model="formReuniao.data_apenas" required class="w-full border rounded px-3 py-1.5 text-sm bg-white">
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Horário Marcado</label>
-              <input type="time" x-model="formReuniao.hora_apenas" class="w-full border rounded px-3 py-1.5 text-sm bg-white font-mono">
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Unidade Vinculada</label>
-              <select x-model="formReuniao.unidade_id" class="w-full border rounded px-3 py-1.5 text-sm bg-white">
-                <option value="">Geral / Sede da Subsecretaria</option>
-                <template x-for="u in unidades" :key="u.id">
-                  <option :value="u.id" x-text="u.nome_fantasia"></option>
-                </template>
-              </select>
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Esfera Envolvida</label>
-              <select x-model="formReuniao.esfera_gestao" class="w-full border rounded px-3 py-1.5 text-sm bg-white font-medium">
-                <option value="Administração Municipal (Direta)">Administração Municipal (Direta)</option>
-                <option value="Organização Social (OS)">Organização Social (OS)</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Responsável / Condutor</label>
-            <input type="text" x-model="formReuniao.responsavel_atribuido" placeholder="Ex: Rafael Reis" class="w-full border rounded px-3 py-1.5 text-sm">
-          </div>
-
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Pauta Detalhada / Participantes</label>
-            <textarea x-model="formReuniao.descricao" rows="3" placeholder="Ex: Pauta: Contratos de gestão e metas..." class="w-full border rounded px-3 py-1.5 text-sm"></textarea>
-          </div>
-
-          <div class="flex justify-end gap-2 pt-4 border-t">
-            <button type="button" @click="abrirModalNovaReuniao = false" class="px-4 py-2 border rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
-            <button type="submit" :disabled="salvando" class="px-4 py-2 bg-emerald-700 text-white rounded-lg text-xs font-bold hover:bg-emerald-600 flex items-center shadow">
-              <span x-show="!salvando" x-text="editandoCompromissoId ? 'Atualizar Reunião' : 'Confirmar Agendamento'"></span>
-              <span x-show="salvando"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...</span>
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- MODAL DE CADASTRO OU EDIÇÃO DE DEMANDA (COM CAMPO GOOGLE DRIVE OPCIONAL) -->
-    <div x-show="abrirModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
-      <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto" @click.away="abrirModal = false">
-        
-        <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
-          <span class="p-1.5 bg-sky-100 text-sky-800 rounded-lg text-sm">
-            <i class="fa-solid" :class="editandoId ? 'fa-pen-to-square' : 'fa-plus'"></i>
-          </span>
-          <span x-text="editandoId ? 'Editar Demanda & Situação' : 'Cadastrar Demanda de Fiscalização'"></span>
-        </h3>
-
-        <form @submit.prevent="salvarDemanda" class="space-y-4">
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Nº Protocolo / Ofício *</label>
-              <input type="text" x-model="formDemanda.protocolo" required class="w-full border rounded px-3 py-1.5 text-sm" placeholder="Ex: OF-2026/01">
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Origem do Pedido</label>
-              <select x-model="formDemanda.origem" class="w-full border rounded px-3 py-1.5 text-sm">
-                <option>Ministério Público</option>
-                <option>Tribunal de Contas</option>
-                <option>Ouvidoria do SUS</option>
-                <option>Denúncia Cidadã</option>
-                <option>Rotina da Subsecretaria</option>
-                <option>Secretaria de Saúde</option>
-                <option>Comissão de Fiscalização</option>
-                <option>Farmácia Judicial</option>
-                <option>Organização Social</option>
-                <option>Manutenção Predial</option>
-                <option>Outros</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Unidade de Saúde Alvo</label>
-              <select x-model="formDemanda.unidade_id" class="w-full border rounded px-3 py-1.5 text-sm bg-white">
-                <option value="">Geral / Subsecretaria / Sem unidade vinculada</option>
-                <template x-for="u in unidades" :key="u.id">
-                  <option :value="u.id" x-text="u.nome_fantasia"></option>
-                </template>
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Esfera de Gestão *</label>
-              <select x-model="formDemanda.esfera_gestao" class="w-full border rounded px-3 py-1.5 text-sm bg-white font-medium">
-                <option value="Administração Municipal (Direta)">Administração Municipal (Direta)</option>
-                <option value="Organização Social (OS)">Organização Social (OS)</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- SELETOR DIRETO DE SITUAÇÃO / STATUS NA EDIÇÃO -->
-          <div class="bg-sky-50 border border-sky-200 p-2.5 rounded-lg">
-            <label class="block text-xs font-bold text-sky-950 mb-1">Situação da Demanda *</label>
-            <select x-model="formDemanda.status" class="w-full border rounded px-3 py-1.5 text-sm bg-white font-bold text-slate-800">
-              <option value="Triagem">Triagem (Aguardando análise)</option>
-              <option value="Em andamento">Em andamento (Fiscalização ativa)</option>
-              <option value="Concluída">Concluída (Finalizada)</option>
-              <option value="Arquivada">Arquivada (Histórico/Acervo)</option>
-            </select>
-          </div>
-
-          <!-- CAMPO GOOGLE DRIVE TOTALMENTE OPCIONAL -->
-          <div class="bg-sky-50/70 p-3 rounded-lg border border-sky-200">
-            <label class="block text-xs font-bold text-sky-950 mb-1 flex items-center gap-1.5">
-              <i class="fa-brands fa-google-drive text-sky-700"></i> Pasta de Documentos e Fotos (Google Drive) <span class="text-[10px] font-normal text-slate-500">(opcional)</span>
-            </label>
-            <input type="text" x-model="formDemanda.link_drive" placeholder="Cole o link da pasta se houver, ou deixe em branco" class="w-full border rounded px-3 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-sky-500">
-            <span class="text-[10px] text-slate-500 mt-1 block">Não é obrigatório preencher. Deixe vazio se não houver pasta no Drive.</span>
-          </div>
-
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Descrição / Objeto da Fiscalização</label>
-            <textarea x-model="formDemanda.descricao" required rows="2" class="w-full border rounded px-3 py-1.5 text-sm" placeholder="Ex: Averiguação de cumprimento de escala e insumos em estoque"></textarea>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Tipo de Fiscalização (Eixo)</label>
-              <select x-model="formDemanda.tipo_fiscalizacao" class="w-full border rounded px-3 py-1.5 text-sm">
-                <option>Assistencial</option>
-                <option>Financeira/Contábil</option>
-                <option>Sanitária</option>
-                <option>Farmacêutica</option>
-                <option>Jurídica</option>
-                <option>Visita in loco</option>
-                <option>Outros</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Grau de Risco</label>
-              <select x-model="formDemanda.grau_risco" class="w-full border rounded px-3 py-1.5 text-sm">
-                <option>Crítico</option>
-                <option>Alto</option>
-                <option>Médio</option>
-                <option>Baixo</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3 bg-slate-50 p-2.5 rounded-lg border">
-            <div>
-              <label class="block text-xs font-bold text-sky-950 mb-1">Auditor / Responsável *</label>
-              <input type="text" x-model="formDemanda.responsavel_atribuido" required placeholder="Ex: Auditor Rafael Reis" class="w-full border rounded px-3 py-1.5 text-sm bg-white font-medium">
-            </div>
-            <div>
-              <label class="block text-xs font-bold text-sky-950 mb-1">Prazo Limite / Fatal *</label>
-              <input type="date" x-model="formDemanda.prazo_fatal" required class="w-full border rounded px-3 py-1.5 text-sm bg-white">
-            </div>
-          </div>
-
-          <div class="flex justify-end gap-2 pt-4 border-t">
-            <button type="button" @click="abrirModal = false" class="px-4 py-2 border rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
-            <button type="submit" :disabled="salvando" class="px-4 py-2 bg-sky-700 text-white rounded-lg text-xs font-bold hover:bg-sky-600 flex items-center shadow">
-              <span x-show="!salvando" x-text="editandoId ? 'Atualizar Dados' : 'Gravar Demanda'"></span>
-              <span x-show="salvando"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...</span>
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- MODAL DE DETALHES E DESPACHOS -->
-    <div x-show="modalVisualizar" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak @keydown.escape.window="modalVisualizar = false">
-      <div class="bg-white rounded-xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]" @click.away="modalVisualizar = false">
-        
-        <div class="overflow-y-auto space-y-4 text-sm pr-1 flex-1">
-          <div class="flex justify-between items-center border-b pb-3 mb-2">
-            <div class="flex items-center gap-3">
-              <span class="p-2.5 bg-sky-900 text-white rounded-lg shadow-sm"><i class="fa-solid fa-file-shield text-xl"></i></span>
-              <div>
-                <span class="text-xs text-slate-500 uppercase tracking-wider font-semibold">Subsecretaria de Fiscalização da Saúde</span>
-                <h3 class="text-lg font-bold text-slate-800" x-text="demandaVisualizada?.protocolo"></h3>
-              </div>
-            </div>
-            <button @click="modalVisualizar = false" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition no-print">
-              <i class="fa-solid fa-xmark text-lg"></i>
-            </button>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3" x-if="demandaVisualizada">
-            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
-              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Origem / Solicitante</span>
-              <span class="font-semibold text-slate-800" x-text="demandaVisualizada.origem || 'Não informada'"></span>
-            </div>
-            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
-              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Unidade Alvo</span>
-              <span class="font-semibold text-slate-800" x-text="demandaVisualizada.unidade_nome || 'Unidade Geral'"></span>
-            </div>
-            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
-              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Esfera de Gestão</span>
-              <span class="font-bold text-xs" 
-                :class="obterEsferaGestao(demandaVisualizada) === 'Organização Social (OS)' ? 'text-purple-700' : 'text-sky-700'"
-                x-text="obterEsferaGestao(demandaVisualizada)">
-              </span>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3" x-if="demandaVisualizada">
-            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
-              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Tipo / Eixo</span>
-              <span class="font-semibold text-slate-800" x-text="demandaVisualizada.tipo_fiscalizacao"></span>
-            </div>
-            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
-              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Grau de Risco</span>
-              <span class="font-bold" 
-                :class="{
-                  'text-rose-600': demandaVisualizada.grau_risco === 'Crítico',
-                  'text-amber-600': demandaVisualizada.grau_risco === 'Alto',
-                  'text-blue-600': demandaVisualizada.grau_risco === 'Médio',
-                  'text-slate-600': demandaVisualizada.grau_risco === 'Baixo'
-                }"
-                x-text="demandaVisualizada.grau_risco"></span>
-            </div>
-            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 flex flex-col justify-between">
-              <div>
-                <span class="text-xs text-slate-500 block mb-0.5 font-medium">Situação</span>
-                <span class="inline-block px-2 py-0.5 rounded text-xs font-bold"
-                  :class="{
-                    'bg-slate-200 text-slate-800 border border-slate-300': demandaVisualizada.status === 'Arquivada',
-                    'bg-emerald-100 text-emerald-700': demandaVisualizada.status === 'Concluída',
-                    'bg-amber-100 text-amber-700': demandaVisualizada.status === 'Em andamento'
-                  }"
-                  x-text="demandaVisualizada.status"></span>
-              </div>
-              <button @click="avancarStatus(demandaVisualizada)" class="text-[11px] text-sky-700 hover:underline font-bold mt-1 text-left no-print">
-                <i class="fa-solid fa-arrows-rotate mr-0.5"></i> Mudar situação
-              </button>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" x-if="demandaVisualizada">
-            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
-              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Data Agendada / Prazo</span>
-              <span class="font-semibold font-mono text-xs" x-text="formatarDataComHora(demandaVisualizada.prazo_fatal, demandaVisualizada.descricao)"></span>
-            </div>
-            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
-              <span class="text-xs text-slate-500 block mb-0.5 font-medium">Responsável / Auditor</span>
-              <span class="font-semibold text-slate-800" x-text="demandaVisualizada.responsavel_atribuido || 'Não atribuído'"></span>
-            </div>
-          </div>
-
-          <!-- BOTÃO EM DESTAQUE DO GOOGLE DRIVE -->
-          <div x-show="obterLinkDrive(demandaVisualizada)" class="p-3 bg-sky-50 border border-sky-200 rounded-lg flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <i class="fa-brands fa-google-drive text-sky-700 text-lg"></i>
-              <div>
-                <span class="text-xs font-bold text-sky-950 block">Pasta de Documentos e Fotos da Demanda</span>
-                <span class="text-[11px] text-slate-500">Acesse arquivos, fotos da vistoria e laudos em nuvem</span>
-              </div>
-            </div>
-            <a :href="obterLinkDrive(demandaVisualizada)" target="_blank" class="px-3 py-1.5 bg-sky-700 hover:bg-sky-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition">
-              Abrir Pasta no Drive <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
-            </a>
-          </div>
-
-          <div class="bg-slate-50 p-3.5 rounded-lg border border-slate-200" x-if="demandaVisualizada">
-            <span class="text-xs text-slate-600 block mb-1 font-bold uppercase tracking-wider">Histórico do Processo & Despachos</span>
-            <div class="text-slate-800 bg-white p-3.5 rounded-lg border border-slate-200 text-xs sm:text-sm whitespace-pre-wrap leading-relaxed min-h-[90px] font-sans" x-text="demandaVisualizada.descricao || 'Sem descrição cadastrada.'"></div>
-          </div>
-
-          <div class="bg-sky-50 border border-sky-200 p-3.5 rounded-lg no-print">
-            <span class="text-xs font-bold text-sky-900 block mb-1.5"><i class="fa-solid fa-pen-to-square mr-1"></i> Inserir Despacho / Andamento</span>
-            <div class="flex flex-col gap-2">
-              <textarea x-model="novoDespachoTexto" rows="2" placeholder="Ex: Diligência in loco realizada..." class="w-full text-xs p-2.5 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"></textarea>
-              <div class="flex justify-between items-center">
-                <input type="text" x-model="novoDespachoAutor" placeholder="Autor do registro" class="text-xs border px-2.5 py-1.5 rounded-lg bg-white w-48 focus:outline-none focus:ring-2 focus:ring-sky-500">
-                <button @click="salvarDespacho()" :disabled="salvandoDespacho" class="bg-sky-800 hover:bg-sky-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center transition shadow-sm">
-                  <span x-show="!salvandoDespacho"><i class="fa-solid fa-paper-plane mr-1"></i> Gravar Despacho</span>
-                  <span x-show="salvandoDespacho"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Gravando...</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="border-t pt-4 mt-3 flex justify-between items-center no-print">
-          <div class="flex gap-2">
-            <button 
-              type="button" 
-              @click="alternarArquivamento(demandaVisualizada)" 
-              class="px-3 py-2 border rounded-lg text-xs font-semibold transition flex items-center gap-1.5"
-              :class="demandaVisualizada?.status === 'Arquivada' ? 'bg-sky-50 text-sky-800 border-sky-300' : 'bg-slate-100 text-slate-700 border-slate-300'">
-              <i class="fa-solid" :class="demandaVisualizada?.status === 'Arquivada' ? 'fa-box-open' : 'fa-box-archive'"></i>
-              <span x-text="demandaVisualizada?.status === 'Arquivada' ? 'Desarquivar' : 'Arquivar Demanda'"></span>
-            </button>
-
-            <button type="button" @click="iniciarEdicao(demandaVisualizada); modalVisualizar = false;" class="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5">
-              <i class="fa-solid fa-pen-to-square"></i> Editar Demanda
-            </button>
-            <button type="button" @click="imprimirFicha()" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1.5 border border-slate-300">
-              <i class="fa-solid fa-print"></i> Imprimir Ficha
-            </button>
-          </div>
-          <button type="button" @click="modalVisualizar = false" class="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold transition">
-            Fechar
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- MODAL: GERENCIAR UNIDADES -->
-    <div x-show="abrirModalUnidade" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
-      <div class="bg-white rounded-xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 max-h-[90vh] flex flex-col" @click.away="abrirModalUnidade = false">
-        
-        <div class="flex justify-between items-center border-b pb-3 mb-4">
-          <div class="flex items-center gap-2">
-            <span class="p-2 bg-sky-100 text-sky-800 rounded-lg"><i class="fa-solid fa-hospital"></i></span>
-            <h3 class="text-base font-bold text-slate-800">Gerenciar Unidades de Saúde</h3>
-          </div>
-          <button @click="abrirModalUnidade = false" class="text-slate-400 hover:text-slate-600">
-            <i class="fa-solid fa-xmark"></i>
-          </button>
-        </div>
-
-        <div class="overflow-y-space-y-6 flex-1 pr-1 overflow-y-auto">
-          <form @submit.prevent="salvarUnidade" class="space-y-3 bg-slate-50 p-3.5 rounded-lg border border-slate-200">
-            <span class="text-xs font-bold text-sky-900 uppercase block mb-1">Cadastrar Nova Unidade</span>
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Nome Fantasia da Unidade *</label>
-              <input type="text" x-model="formUnidade.nome_fantasia" required placeholder="Ex: Hospital Municipal Nossa Senhora de Nazareth" class="w-full border rounded px-3 py-1.5 text-sm bg-white">
-            </div>
-
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Tipo de Unidade</label>
-              <select x-model="formUnidade.tipo_unidade" class="w-full border rounded px-3 py-1.5 text-sm bg-white">
-                <option>Atenção Básica (ESF/UBS)</option>
-                <option>Urgência/Emergência (UPA/PA)</option>
-                <option>Hospitalar</option>
-                <option>Especializada (Policlínica/CEO)</option>
-                <option>Administrativa/Almoxarifado</option>
-              </select>
-            </div>
-
-            <div class="flex justify-end pt-2">
-              <button type="submit" :disabled="salvandoUnidade" class="px-4 py-1.5 bg-sky-800 text-white rounded-lg text-xs font-semibold hover:bg-sky-700 flex items-center shadow-sm">
-                <span x-show="!salvandoUnidade"><i class="fa-solid fa-plus mr-1"></i> Cadastrar Unidade</span>
-                <span x-show="salvandoUnidade"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Salvando...</span>
-              </button>
-            </div>
-          </form>
-
-          <div class="mt-4">
-            <div class="flex justify-between items-center mb-2">
-              <span class="text-xs font-bold text-slate-700 uppercase">Unidades Cadastradas (<span x-text="unidades.length"></span>)</span>
-            </div>
-            
-            <div class="divide-y border rounded-lg overflow-hidden bg-white max-h-60 overflow-y-auto">
-              <template x-for="u in unidades" :key="u.id">
-                <div class="p-3 flex items-center justify-between hover:bg-slate-50 transition text-sm">
-                  <div>
-                    <p class="font-bold text-slate-800 text-xs sm:text-sm" x-text="u.nome_fantasia"></p>
-                    <div class="flex items-center gap-2 mt-0.5">
-                      <span class="text-xs text-slate-400" x-text="u.tipo_unidade"></span>
-                      <span class="text-[10px] px-2 py-0.2 rounded-full font-bold bg-amber-100 text-amber-800 border border-amber-200" x-text="contarVisitasPorUnidade(u.id) + ' visita(s)'"></span>
-                    </div>
-                  </div>
-                  <div class="flex items-center gap-1.5">
-                    <button 
-                      type="button"
-                      @click="abrirDossieUnidade(u)"
-                      class="px-2.5 py-1 text-sky-700 hover:text-white hover:bg-sky-700 border border-sky-300 rounded-md transition text-xs flex items-center gap-1 font-semibold"
-                      title="Ver Ficha Histórica / Dossiê Completo">
-                      <i class="fa-solid fa-file-medical"></i> Raio-X
-                    </button>
-                    <button 
-                      type="button"
-                      @click="excluirUnidade(u.id, u.nome_fantasia)"
-                      class="p-1 text-rose-600 hover:text-white hover:bg-rose-600 border border-rose-200 rounded-md transition text-xs flex items-center"
-                      title="Excluir Unidade">
-                      <i class="fa-regular fa-trash-can"></i>
-                    </button>
-                  </div>
-                </div>
-              </template>
-            </div>
-          </div>
-        </div>
-
-        <div class="border-t pt-3 mt-4 flex justify-end">
-          <button type="button" @click="abrirModalUnidade = false" class="px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white rounded-lg text-xs font-medium transition">
-            Fechar
-          </button>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- MODAL DO DOSSIÊ DA UNIDADE (RAIO-X EM TELA) -->
-    <div x-show="modalDossieUnidade" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
-      <div class="bg-white rounded-xl max-w-4xl w-full p-6 shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[94vh]" @click.away="modalDossieUnidade = false">
-        
-        <div class="overflow-y-auto space-y-6 text-sm pr-2 flex-1" x-if="unidadeDossie">
-          <div class="border-b-2 border-slate-800 pb-3 flex justify-between items-start">
-            <div>
-              <span class="text-[11px] text-sky-800 font-bold uppercase tracking-wider block">Dossiê Técnico de Fiscalização e Auditoria</span>
-              <h2 class="text-xl font-bold text-slate-900" x-text="unidadeDossie.nome_fantasia"></h2>
-              <div class="flex items-center gap-3 text-xs text-slate-500 mt-1">
-                <span><i class="fa-solid fa-tag mr-1"></i> Tipo: <strong class="text-slate-700" x-text="unidadeDossie.tipo_unidade"></strong></span>
-                <span x-show="unidadeDossie.cnes && !unidadeDossie.cnes.startsWith('AUTO-')"><i class="fa-solid fa-id-card mr-1"></i> CNES: <strong class="text-slate-700" x-text="unidadeDossie.cnes"></strong></span>
-              </div>
-            </div>
-            <button @click="modalDossieUnidade = false" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition no-print">
-              <i class="fa-solid fa-xmark text-lg"></i>
-            </button>
-          </div>
-
-          <div class="grid grid-cols-4 gap-3 text-center">
-            <div class="p-3 bg-slate-50 border rounded-lg">
-              <span class="text-[10px] text-slate-500 uppercase font-semibold block">Total Notificações</span>
-              <span class="text-xl font-bold text-slate-800" x-text="demandasDaUnidadeDossie.length"></span>
-            </div>
-            <div class="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-              <span class="text-[10px] text-amber-800 uppercase font-bold block"><i class="fa-solid fa-location-dot mr-1"></i> Visitas in loco</span>
-              <span class="text-xl font-bold text-amber-900" x-text="visitasInLocoDaUnidadeDossie.length"></span>
-            </div>
-            <div class="p-3 bg-slate-50 border rounded-lg">
-              <span class="text-[10px] text-slate-500 uppercase font-semibold block">Críticas / Alto Risco</span>
-              <span class="text-xl font-bold text-rose-700" x-text="demandasDaUnidadeDossie.filter(d => (d.grau_risco === 'Crítico' || d.grau_risco === 'Alto') && d.status !== 'Arquivada').length"></span>
-            </div>
-            <div class="p-3 bg-slate-50 border rounded-lg">
-              <span class="text-[10px] text-slate-500 uppercase font-semibold block">Reuniões Realizadas</span>
-              <span class="text-xl font-bold text-emerald-700" x-text="reunioesDaUnidadeDossie.length"></span>
-            </div>
-          </div>
-
-          <!-- Seção de Visitas in loco nesta unidade -->
-          <div class="bg-amber-50/60 border border-amber-200 p-4 rounded-xl">
-            <div class="flex justify-between items-center mb-2.5 pb-2 border-b border-amber-200/80">
-              <h4 class="text-xs font-bold text-amber-950 uppercase tracking-wide flex items-center gap-1.5">
-                <i class="fa-solid fa-person-walking-dashed-line-arrow-right text-amber-700 text-sm"></i>
-                Histórico de Fiscalizações em Campo (Visitas in loco) nesta Unidade (<span x-text="visitasInLocoDaUnidadeDossie.length"></span>)
-              </h4>
-              <button @click="modalDossieUnidade = false; abrirModalNovaVisita(unidadeDossie.id)" class="text-[11px] font-bold text-amber-900 hover:text-amber-700 bg-white border border-amber-300 px-2.5 py-1 rounded-md shadow-sm no-print">
-                + Nova Visita nesta Unidade
-              </button>
-            </div>
-
-            <div class="space-y-2 max-h-48 overflow-y-auto pr-1">
-              <template x-for="v in visitasInLocoDaUnidadeDossie" :key="v.id">
-                <div class="p-3 bg-white border border-amber-200 rounded-lg shadow-sm text-xs space-y-1">
-                  <div class="flex justify-between items-center">
-                    <span class="font-bold text-slate-900" x-text="v.protocolo"></span>
-                    <span class="font-mono text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded" x-text="formatarDataComHora(v.prazo_fatal, v.descricao)"></span>
-                  </div>
-                  <p class="text-slate-700 leading-relaxed font-sans" x-text="limparTextoDescricao(v.descricao)"></p>
-                  <div class="text-[11px] text-slate-400 pt-1 flex justify-between border-t border-slate-100">
-                    <span>Fiscal/Auditor: <strong x-text="v.responsavel_atribuido || 'Equipe FISA'"></strong></span>
-                    <div class="flex gap-2">
-                      <button @click="modalDossieUnidade = false; editarCompromisso(v)" class="text-amber-700 hover:underline font-bold">Editar</button>
-                      <button @click="excluirDemanda(v.id, v.protocolo)" class="text-rose-600 hover:underline font-bold">Excluir</button>
-                    </div>
-                  </div>
-                </div>
-              </template>
-              <template x-if="visitasInLocoDaUnidadeDossie.length === 0">
-                <div class="p-4 text-center text-slate-500 italic text-xs bg-white rounded-lg border border-dashed border-amber-200">
-                  Nenhuma fiscalização in loco registrada para esta unidade até o momento.
-                </div>
-              </template>
-            </div>
-          </div>
-
-          <!-- Processos e Demandas Gerais -->
-          <div>
-            <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 border-b pb-1">
-              Processos, Notificações e Expedientes Gerais (<span x-text="demandasDaUnidadeDossie.filter(d => d.tipo_fiscalizacao !== 'Visita in loco').length"></span>)
-            </h4>
-            <div class="divide-y border rounded-lg overflow-hidden text-xs max-h-48 overflow-y-auto">
-              <template x-for="d in demandasDaUnidadeDossie.filter(d => d.tipo_fiscalizacao !== 'Visita in loco')" :key="d.id">
-                <div class="p-3 bg-white hover:bg-slate-50 transition flex justify-between items-start gap-3">
-                  <div>
-                    <div class="flex items-center gap-2">
-                      <span class="font-bold text-slate-800" x-text="d.protocolo"></span>
-                      <span class="px-1.5 py-0.2 rounded text-[10px] font-semibold"
-                        :class="d.grau_risco === 'Crítico' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'"
-                        x-text="d.grau_risco"></span>
-                      <span class="text-[10px] text-slate-400" x-text="'&bull; ' + d.origem"></span>
-                    </div>
-                    <p class="text-slate-600 mt-1 line-clamp-1" x-text="limparTextoDescricao(d.descricao)"></p>
-                  </div>
-                  <div class="text-right whitespace-nowrap">
-                    <span class="text-[11px] font-semibold" :class="d.status === 'Concluída' ? 'text-emerald-700' : 'text-amber-700'" x-text="d.status"></span>
-                    <span class="text-[10px] text-slate-400 block" x-text="formatarDataComHora(d.prazo_fatal, d.descricao)"></span>
-                  </div>
-                </div>
-              </template>
-            </div>
-          </div>
-        </div>
-
-        <div class="border-t pt-4 mt-3 flex justify-between items-center no-print">
-          <button type="button" @click="imprimirDossie()" class="px-4 py-2 bg-sky-900 hover:bg-sky-800 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
-            <i class="fa-solid fa-print"></i> Imprimir Dossiê da Unidade
-          </button>
-          <button type="button" @click="modalDossieUnidade = false" class="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold transition">
-            Fechar
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- MODAL: RELATÓRIO MENSAL EM TELA -->
-    <div x-show="modalRelatorioMensal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
-      <div class="bg-white rounded-xl max-w-4xl w-full p-8 shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[94vh]" @click.away="modalRelatorioMensal = false">
-        <div class="overflow-y-auto space-y-6 text-sm pr-2 flex-1">
-          <div class="border-b-2 border-slate-800 pb-4 text-center space-y-1">
-            <h2 class="text-lg font-bold tracking-tight text-slate-900 uppercase">Prefeitura Municipal &bull; Secretaria de Saúde</h2>
-            <h3 class="text-sm font-semibold text-sky-900">Subsecretaria de Fiscalização e Avaliação da Saúde</h3>
-            <p class="text-xs text-slate-500 font-mono" x-text="'Relatório Mensal Executivo de Auditoria &bull; ' + dataRelatorioExtenso"></p>
-          </div>
-
-          <div class="grid grid-cols-4 gap-3 text-center">
-            <div class="p-3 bg-slate-50 border rounded-lg">
-              <span class="text-[11px] text-slate-500 uppercase font-semibold block">Total</span>
-              <span class="text-xl font-bold text-slate-800" x-text="demandasApenasFiscalizacao.length"></span>
-            </div>
-            <div class="p-3 bg-slate-50 border rounded-lg">
-              <span class="text-[11px] text-slate-500 uppercase font-semibold block">Concluídas</span>
-              <span class="text-xl font-bold text-emerald-700" x-text="demandasApenasFiscalizacao.filter(d => d.status === 'Concluída').length"></span>
-            </div>
-            <div class="p-3 bg-slate-50 border rounded-lg">
-              <span class="text-[11px] text-slate-500 uppercase font-semibold block">Em Andamento</span>
-              <span class="text-xl font-bold text-amber-700" x-text="demandasApenasFiscalizacao.filter(d => d.status !== 'Concluída' && d.status !== 'Arquivada').length"></span>
-            </div>
-            <div class="p-3 bg-slate-50 border rounded-lg">
-              <span class="text-[11px] text-slate-500 uppercase font-semibold block">Críticas</span>
-              <span class="text-xl font-bold text-rose-700" x-text="demandasApenasFiscalizacao.filter(d => (d.grau_risco === 'Crítico' || d.grau_risco === 'Alto') && d.status !== 'Arquivada').length"></span>
-            </div>
-          </div>
-
-          <div class="pt-10 text-center text-xs">
-            <div class="border-t border-slate-500 w-1/2 mx-auto pt-1 font-bold text-slate-900">
-              Subsecretaria de Fiscalização e Avaliação da Saúde
-            </div>
-            <span class="text-[11px] text-slate-500">Gestão, Controle e Governança</span>
-          </div>
-        </div>
-
-        <div class="border-t pt-4 mt-3 flex justify-between items-center no-print">
-          <button type="button" @click="imprimirRelatorio()" class="px-4 py-2 bg-indigo-700 hover:bg-indigo-600 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
-            <i class="fa-solid fa-print"></i> Imprimir / Salvar PDF
-          </button>
-          <button type="button" @click="modalRelatorioMensal = false" class="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold transition">
-            Fechar
-          </button>
-        </div>
       </div>
     </div>
 
   </main>
-
-  <!-- ========================================================================= -->
-  <!-- FOLHAS DE IMPRESSÃO EXCLUSIVAS (TOTALMENTE INDEPENDENTES E FORA DOS MODAIS) -->
-  <!-- ========================================================================= -->
-
-  <!-- 1. FOLHA EXCLUSIVA: FICHA TÉCNICA DA DEMANDA / FISCALIZAÇÃO -->
-  <div id="folha-impressao-demanda" class="area-papel-impressao" x-show="demandaVisualizada">
-    <div style="border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px; text-align: center;">
-      <h1 style="font-size: 15px; font-weight: bold; text-transform: uppercase; margin: 0; color: #0f172a;">Prefeitura Municipal &bull; Secretaria de Saúde</h1>
-      <h2 style="font-size: 13px; font-weight: bold; text-transform: uppercase; margin: 4px 0 0 0; color: #0369a1;">Subsecretaria de Fiscalização e Avaliação da Saúde</h2>
-      <p style="font-size: 11px; font-family: monospace; color: #64748b; margin: 4px 0 0 0;">FICHA TÉCNICA DE FISCALIZAÇÃO & AUDITORIA OPERACIONAL</p>
-    </div>
-
-    <div style="font-size: 12px; color: #1e293b; line-height: 1.4;">
-      <div style="display: flex; gap: 12px; margin-bottom: 10px;">
-        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
-          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Nº Protocolo / Ofício</span>
-          <strong style="font-size: 13px; color: #0f172a;" x-text="demandaVisualizada?.protocolo"></strong>
-        </div>
-        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
-          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Origem da Demanda</span>
-          <span style="font-weight: 600;" x-text="demandaVisualizada?.origem || 'Não informada'"></span>
-        </div>
-      </div>
-
-      <div style="display: flex; gap: 12px; margin-bottom: 10px;">
-        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
-          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Unidade Alvo</span>
-          <strong style="color: #0f172a;" x-text="demandaVisualizada?.unidade_nome || 'Unidade Geral'"></strong>
-        </div>
-        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
-          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Esfera de Gestão</span>
-          <span style="font-weight: 600;" x-text="obterEsferaGestao(demandaVisualizada)"></span>
-        </div>
-      </div>
-
-      <div style="display: flex; gap: 12px; margin-bottom: 10px;">
-        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
-          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Eixo Temático</span>
-          <span style="font-weight: 600;" x-text="demandaVisualizada?.tipo_fiscalizacao"></span>
-        </div>
-        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
-          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Grau de Risco</span>
-          <strong x-text="demandaVisualizada?.grau_risco"></strong>
-        </div>
-        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
-          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Status Atual</span>
-          <span style="font-weight: 600;" x-text="demandaVisualizada?.status"></span>
-        </div>
-      </div>
-
-      <div style="display: flex; gap: 12px; margin-bottom: 10px;">
-        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
-          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Data e Horário</span>
-          <strong style="font-family: monospace;" x-text="formatarDataComHora(demandaVisualizada?.prazo_fatal, demandaVisualizada?.descricao)"></strong>
-        </div>
-        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
-          <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Responsável / Auditor</span>
-          <span style="font-weight: 600;" x-text="demandaVisualizada?.responsavel_atribuido || 'Não atribuído'"></span>
-        </div>
-      </div>
-
-      <div style="border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; margin-bottom: 24px;">
-        <span style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block; margin-bottom: 6px;">Descrição do Objeto & Despachos de Fiscalização</span>
-        <div style="white-space: pre-wrap; font-family: sans-serif; font-size: 11px; line-height: 1.5; color: #1e293b;" x-text="demandaVisualizada?.descricao || 'Sem histórico registrado.'"></div>
-      </div>
-
-      <div style="padding-top: 36px; text-align: center;">
-        <div style="border-top: 1px solid #475569; width: 50%; margin: 0 auto; padding-top: 6px; font-weight: bold; color: #0f172a;">
-          Subsecretaria de Fiscalização e Avaliação da Saúde
-        </div>
-        <span style="font-size: 10px; color: #64748b;">Gestão, Controle e Governança</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- 2. FOLHA EXCLUSIVA: DOSSIÊ TÉCNICO DA UNIDADE DE SAÚDE -->
-  <div id="folha-impressao-dossie" class="area-papel-impressao" x-show="unidadeDossie">
-    <div style="border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px; text-align: center;">
-      <h1 style="font-size: 15px; font-weight: bold; text-transform: uppercase; margin: 0; color: #0f172a;">Prefeitura Municipal &bull; Secretaria de Saúde</h1>
-      <h2 style="font-size: 13px; font-weight: bold; text-transform: uppercase; margin: 4px 0 0 0; color: #0369a1;">Subsecretaria de Fiscalização e Avaliação da Saúde</h2>
-      <p style="font-size: 11px; font-family: monospace; color: #64748b; margin: 4px 0 0 0;">DOSSIÊ TÉCNICO & HISTÓRICO DE FISCALIZAÇÃO DA UNIDADE</p>
-    </div>
-
-    <div style="font-size: 12px; color: #1e293b; line-height: 1.4;">
-      <div style="border: 1px solid #cbd5e1; padding: 12px; border-radius: 6px; margin-bottom: 14px; background-color: #f8fafc;">
-        <span style="font-size: 10px; font-weight: bold; color: #0369a1; text-transform: uppercase; display: block;">Unidade de Saúde</span>
-        <strong style="font-size: 16px; color: #0f172a;" x-text="unidadeDossie?.nome_fantasia"></strong>
-        <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
-          <span>Tipo: <strong style="color: #334155;" x-text="unidadeDossie?.tipo_unidade"></strong></span>
-          <span style="margin-left: 14px;" x-show="unidadeDossie?.cnes && !unidadeDossie?.cnes.startsWith('AUTO-')">CNES: <strong style="color: #334155;" x-text="unidadeDossie?.cnes"></strong></span>
-        </div>
-      </div>
-
-      <div style="display: flex; gap: 8px; margin-bottom: 16px; text-align: center;">
-        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
-          <span style="font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Total Notificações</span>
-          <strong style="font-size: 14px; color: #0f172a;" x-text="demandasDaUnidadeDossie.length"></strong>
-        </div>
-        <div style="flex: 1; border: 1px solid #f59e0b; background-color: #fffbeb; padding: 8px; border-radius: 6px;">
-          <span style="font-size: 9px; font-weight: bold; color: #b45309; text-transform: uppercase; display: block;">Visitas in loco</span>
-          <strong style="font-size: 14px; color: #78350f;" x-text="visitasInLocoDaUnidadeDossie.length"></strong>
-        </div>
-        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
-          <span style="font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Processos Críticos</span>
-          <strong style="font-size: 14px; color: #e11d48;" x-text="demandasDaUnidadeDossie.filter(d => (d.grau_risco === 'Crítico' || d.grau_risco === 'Alto') && d.status !== 'Arquivada').length"></strong>
-        </div>
-        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
-          <span style="font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Reuniões Realizadas</span>
-          <strong style="font-size: 14px; color: #047857;" x-text="reunioesDaUnidadeDossie.length"></strong>
-        </div>
-      </div>
-
-      <div style="margin-bottom: 16px;">
-        <h3 style="font-size: 11px; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #94a3b8; padding-bottom: 4px; margin-bottom: 8px; color: #0f172a;">
-          1. Histórico de Fiscalizações em Campo (Visitas in loco) (<span x-text="visitasInLocoDaUnidadeDossie.length"></span>)
-        </h3>
-        <template x-for="v in visitasInLocoDaUnidadeDossie" :key="v.id">
-          <div style="border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; margin-bottom: 6px;">
-            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px; margin-bottom: 4px;">
-              <span x-text="v.protocolo"></span>
-              <span style="font-family: monospace; color: #b45309;" x-text="formatarDataComHora(v.prazo_fatal, v.descricao)"></span>
-            </div>
-            <p style="margin: 0; font-size: 10.5px; color: #334155; line-height: 1.4;" x-text="limparTextoDescricao(v.descricao)"></p>
-            <div style="font-size: 9.5px; color: #64748b; margin-top: 4px; border-top: 1px dashed #e2e8f0; padding-top: 3px;">
-              <span>Auditor/Fiscal: <strong x-text="v.responsavel_atribuido || 'Equipe FISA'"></strong></span>
-              <span style="margin-left: 12px;" x-text="'Risco apurado: ' + v.grau_risco"></span>
-            </div>
-          </div>
-        </template>
-      </div>
-
-      <div style="margin-bottom: 24px;">
-        <h3 style="font-size: 11px; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #94a3b8; padding-bottom: 4px; margin-bottom: 8px; color: #0f172a;">
-          2. Processos e Notificações Gerais (<span x-text="demandasDaUnidadeDossie.filter(d => d.tipo_fiscalizacao !== 'Visita in loco').length"></span>)
-        </h3>
-        <template x-for="d in demandasDaUnidadeDossie.filter(d => d.tipo_fiscalizacao !== 'Visita in loco')" :key="d.id">
-          <div style="border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; margin-bottom: 6px;">
-            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px; margin-bottom: 3px;">
-              <span x-text="d.protocolo + ' (' + d.tipo_fiscalizacao + ')'"></span>
-              <span style="font-size: 10px; color: #475569;" x-text="d.status + ' &bull; Data: ' + formatarDataComHora(d.prazo_fatal, d.descricao)"></span>
-            </div>
-            <p style="margin: 0; font-size: 10.5px; color: #334155; line-height: 1.4;" x-text="limparTextoDescricao(d.descricao)"></p>
-          </div>
-        </template>
-      </div>
-
-      <div style="padding-top: 30px; text-align: center;">
-        <div style="border-top: 1px solid #475569; width: 50%; margin: 0 auto; padding-top: 6px; font-weight: bold; color: #0f172a;">
-          Subsecretaria de Fiscalização e Avaliação da Saúde
-        </div>
-        <span style="font-size: 10px; color: #64748b;">Gestão, Controle e Governança</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- 3. FOLHA EXCLUSIVA: RELATÓRIO MENSAL EXECUTIVO -->
-  <div id="folha-impressao-relatorio" class="area-papel-impressao">
-    <div style="border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px; text-align: center;">
-      <h1 style="font-size: 15px; font-weight: bold; text-transform: uppercase; margin: 0; color: #0f172a;">Prefeitura Municipal &bull; Secretaria de Saúde</h1>
-      <h2 style="font-size: 13px; font-weight: bold; text-transform: uppercase; margin: 4px 0 0 0; color: #0369a1;">Subsecretaria de Fiscalização e Avaliação da Saúde</h2>
-      <p style="font-size: 11px; font-family: monospace; color: #64748b; margin: 4px 0 0 0;" x-text="'RELATÓRIO MENSAL EXECUTIVO &bull; ' + dataRelatorioExtenso"></p>
-    </div>
-
-    <div style="font-size: 12px; color: #1e293b; line-height: 1.4;">
-      <div style="display: flex; gap: 8px; margin-bottom: 16px; text-align: center;">
-        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
-          <span style="font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Total de Fiscalizações</span>
-          <strong style="font-size: 14px; color: #0f172a;" x-text="demandasApenasFiscalizacao.length"></strong>
-        </div>
-        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
-          <span style="font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Concluídas</span>
-          <strong style="font-size: 14px; color: #047857;" x-text="demandasApenasFiscalizacao.filter(d => d.status === 'Concluída').length"></strong>
-        </div>
-        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
-          <span style="font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Em Andamento</span>
-          <strong style="font-size: 14px; color: #b45309;" x-text="demandasApenasFiscalizacao.filter(d => d.status !== 'Concluída' && d.status !== 'Arquivada').length"></strong>
-        </div>
-        <div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px;">
-          <span style="font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">Críticas / Alto Risco</span>
-          <strong style="font-size: 14px; color: #e11d48;" x-text="demandasApenasFiscalizacao.filter(d => (d.grau_risco === 'Crítico' || d.grau_risco === 'Alto') && d.status !== 'Arquivada').length"></strong>
-        </div>
-      </div>
-
-      <div style="margin-bottom: 16px;">
-        <h3 style="font-size: 11px; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #94a3b8; padding-bottom: 4px; margin-bottom: 8px; color: #0f172a;">
-          1. Demandas com Órgãos de Controle (MP / TCE / Ouvidoria)
-        </h3>
-        <template x-for="d in demandasApenasFiscalizacao.filter(d => (d.grau_risco === 'Crítico' || d.origem === 'Ministério Público' || d.origem === 'Tribunal de Contas') && d.status !== 'Arquivada').slice(0, 5)" :key="d.id">
-          <div style="border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; margin-bottom: 6px;">
-            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px; margin-bottom: 2px;">
-              <span x-text="d.protocolo + ' &bull; ' + (d.unidade_nome || 'Geral') + ' (' + obterEsferaGestao(d) + ')'"></span>
-              <span style="color: #e11d48;" x-text="d.grau_risco"></span>
-            </div>
-            <p style="margin: 0; font-size: 10px; color: #475569;" x-text="limparTextoDescricao(d.descricao)"></p>
-          </div>
-        </template>
-      </div>
-
-      <div style="padding-top: 36px; text-align: center;">
-        <div style="border-top: 1px solid #475569; width: 50%; margin: 0 auto; padding-top: 6px; font-weight: bold; color: #0f172a;">
-          Subsecretaria de Fiscalização e Avaliação da Saúde
-        </div>
-        <span style="font-size: 10px; color: #64748b;">Gestão, Controle e Governança</span>
-      </div>
-    </div>
-  </div>
 
   <script>
     const API_URL = 'https://sisfisa-api.onrender.com';
@@ -1481,6 +766,7 @@
         abrirModalNovaReuniao: false,
         abrirModalVisita: false,
         abrirModalUnidade: false,
+        abrirModalContato: false,
         modalVisualizar: false,
         modalRelatorioMensal: false,
         modalDossieUnidade: false,
@@ -1489,6 +775,7 @@
 
         editandoId: null,
         editandoCompromissoId: null,
+        editandoContatoId: null,
         demandaVisualizada: null,
         unidadeDossie: null,
 
@@ -1500,9 +787,12 @@
         
         filtroRapido: 'todos',
         busca: '',
+        buscaContatos: '',
+        filtroCategoriaContato: 'todos',
         
         demandas: [],
         unidades: [],
+        contatos: [],
         toasts: [],
         
         dataCalendarioAtual: new Date(),
@@ -1563,6 +853,16 @@
           tipo_unidade: 'Atenção Básica (ESF/UBS)'
         },
 
+        formContato: {
+          nome: '',
+          cargo: '',
+          orgao_unidade: '',
+          categoria: 'Direção Hospitalar',
+          telefone: '',
+          email: '',
+          observacao: ''
+        },
+
         mostrarToast(mensagem, tipo = 'sucesso') {
           const id = Date.now();
           this.toasts.push({ id, mensagem, tipo });
@@ -1582,6 +882,7 @@
               this.carregarDemandas(),
               this.carregarUnidades()
             ]);
+            this.carregarContatosLocais();
           } finally {
             clearTimeout(timeoutId);
             this.conectandoRender = false;
@@ -1618,6 +919,134 @@
           } catch (e) {
             console.error(e);
           }
+        },
+
+        // --- GESTÃO DE CONTATOS (Armazenamento Local) ---
+        carregarContatosLocais() {
+          const salvos = localStorage.getItem('sisfisa_contatos');
+          if (salvos) {
+            try {
+              this.contatos = JSON.parse(salvos);
+            } catch (e) {
+              this.contatos = [];
+            }
+          } else {
+            this.contatos = [
+              {
+                id: 1,
+                nome: "Direção Geral",
+                cargo: "Diretor Geral",
+                orgao_unidade: "Hospital Municipal Nossa Senhora de Nazareth",
+                categoria: "Direção Hospitalar",
+                telefone: "(22) 2651-2100",
+                email: "direcao.hmnsn@saquarema.rj.gov.br",
+                observacao: "Administração e Direção Geral da Unidade Hospitalar"
+              },
+              {
+                id: 2,
+                nome: "Coordenação Médica",
+                cargo: "Coordenador de Plantão",
+                orgao_unidade: "UPA 24h Saquarema",
+                categoria: "Direção Hospitalar",
+                telefone: "(22) 2651-1000",
+                email: "upa.saquarema@saquarema.rj.gov.br",
+                observacao: "Escalas médicas e atendimento de urgência"
+              },
+              {
+                id: 3,
+                nome: "Promotoria de Justiça de Tutela Coletiva",
+                cargo: "Secretaria Processual",
+                orgao_unidade: "Ministério Público do Estado do Rio de Janeiro",
+                categoria: "Órgãos de Controle",
+                telefone: "(22) 2651-1550",
+                email: "promotoria.saude@mprj.mp.br",
+                observacao: "Ofícios, inquéritos civis e fiscalizações conjuntas"
+              }
+            ];
+            this.salvarContatosStorage();
+          }
+        },
+
+        salvarContatosStorage() {
+          localStorage.setItem('sisfisa_contatos', JSON.stringify(this.contatos));
+        },
+
+        abrirModalNovoContato() {
+          this.editandoContatoId = null;
+          this.formContato = {
+            nome: '',
+            cargo: '',
+            orgao_unidade: '',
+            categoria: 'Direção Hospitalar',
+            telefone: '',
+            email: '',
+            observacao: ''
+          };
+          this.abrirModalContato = true;
+        },
+
+        iniciarEdicaoContato(c) {
+          this.editandoContatoId = c.id;
+          this.formContato = {
+            nome: c.nome,
+            cargo: c.cargo,
+            orgao_unidade: c.orgao_unidade,
+            categoria: c.categoria,
+            telefone: c.telefone || '',
+            email: c.email || '',
+            observacao: c.observacao || ''
+          };
+          this.abrirModalContato = true;
+        },
+
+        salvarContato() {
+          if (!this.formContato.nome || !this.formContato.cargo) {
+            this.mostrarToast('Preencha o nome e o cargo do contato.', 'erro');
+            return;
+          }
+
+          if (this.editandoContatoId) {
+            const idx = this.contatos.findIndex(c => c.id === this.editandoContatoId);
+            if (idx !== -1) {
+              this.contatos[idx] = { ...this.formContato, id: this.editandoContatoId };
+              this.mostrarToast(`Contato "${this.formContato.nome}" atualizado!`);
+            }
+          } else {
+            const novo = {
+              ...this.formContato,
+              id: Date.now()
+            };
+            this.contatos.unshift(novo);
+            this.mostrarToast(`Contato "${novo.nome}" cadastrado com sucesso!`);
+          }
+
+          this.salvarContatosStorage();
+          this.abrirModalContato = false;
+        },
+
+        excluirContato(id, nome) {
+          if (!confirm(`Deseja realmente excluir o contato "${nome}"?`)) return;
+          this.contatos = this.contatos.filter(c => c.id !== id);
+          this.salvarContatosStorage();
+          this.mostrarToast(`Contato "${nome}" removido!`);
+        },
+
+        get contatosFiltrados() {
+          let lista = this.contatos;
+
+          if (this.filtroCategoriaContato !== 'todos') {
+            lista = lista.filter(c => c.categoria === this.filtroCategoriaContato);
+          }
+
+          if (!this.buscaContatos) return lista;
+          const termo = this.buscaContatos.toLowerCase();
+          return lista.filter(c => 
+            (c.nome && c.nome.toLowerCase().includes(termo)) ||
+            (c.cargo && c.cargo.toLowerCase().includes(termo)) ||
+            (c.orgao_unidade && c.orgao_unidade.toLowerCase().includes(termo)) ||
+            (c.telefone && c.telefone.includes(termo)) ||
+            (c.email && c.email.toLowerCase().includes(termo))
+          );
         },
 
         // --- GOOGLE DRIVE: EXTRAÇÃO AUTOMÁTICA DE LINK ---
@@ -1946,10 +1375,8 @@
             const horaDefinida = this.formVisita.hora_apenas || '09:00';
             let descricaoFinal = this.formVisita.descricao || '';
             
-            // Grava a hora garantida no texto
             descricaoFinal = `[HORA: ${horaDefinida}]\n` + descricaoFinal;
 
-            // Anexa o link do Drive no texto para evitar erro de schema de banco
             if (this.formVisita.link_drive && this.formVisita.link_drive.trim() !== '') {
               descricaoFinal = `[DRIVE: ${this.formVisita.link_drive.trim()}]\n` + descricaoFinal;
             }
@@ -2138,7 +1565,6 @@
           try {
             let descricaoFinal = this.formDemanda.descricao || '';
             
-            // Anexa o link do Drive na descrição se houver, sem enviar como coluna direta
             if (this.formDemanda.link_drive && this.formDemanda.link_drive.trim() !== '') {
               descricaoFinal = `[DRIVE: ${this.formDemanda.link_drive.trim()}]\n` + descricaoFinal;
             }
