@@ -398,5 +398,38 @@ app.delete('/api/demandas/:id', async (req, res) => {
   }
 });
 
+// ==========================================
+// ROTAS DA AGENDA DE CONTATOS (SIS-FISA)
+// ==========================================
+
+// Buscar todos os contatos
+app.get('/api/contatos', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT * FROM contatos WHERE ativo = true ORDER BY nome ASC'
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('Erro ao buscar contatos:', err);
+    res.status(500).json({ error: 'Erro ao buscar contatos' });
+  }
+});
+
+// Cadastrar novo contato
+app.post('/api/contatos', async (req, res) => {
+  const { nome, cargo, orgao_setor, categoria, telefone, ramal, email, observacoes } = req.body;
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO contatos (nome, cargo, orgao_setor, categoria, telefone, ramal, email, observacoes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [nome, cargo, orgao_setor, categoria, telefone, ramal, email, observacoes]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    console.error('Erro ao cadastrar contato:', err);
+    res.status(500).json({ error: 'Erro ao cadastrar contato' });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`SIS-FISA API pronta na porta ${PORT}`));
