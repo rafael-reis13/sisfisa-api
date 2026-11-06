@@ -8,7 +8,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Conexão via HTTPS nativo usando as variáveis configuradas no Render
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -16,7 +15,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // Rota de Health Check
 app.get('/api/ping', (req, res) => res.json({ status: 'online', timestamp: new Date() }));
 
-// Listar demandas e visitas com dados da unidade
+// Listar demandas com dados da unidade
 app.get('/api/demandas', async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -123,7 +122,7 @@ app.delete('/api/unidades/:id', async (req, res) => {
   }
 });
 
-// Cadastrar demanda ou visita in loco (com link_drive)
+// Cadastrar demanda ou visita in loco (blindado contra protocolo repetido e link_drive)
 app.post('/api/demandas', async (req, res) => {
   const { 
     protocolo, 
@@ -148,10 +147,21 @@ app.post('/api/demandas', async (req, res) => {
       limpaUnidadeId = unidade_id;
     }
 
-    const protocoloTratado = (protocolo || 'SEM PROTOCOLO').trim().slice(0, 30);
+    let baseProtocolo = (protocolo || 'SEM PROTOCOLO').trim().slice(0, 30);
+
+    // Evita duplicidade se o banco tiver constraint UNIQUE
+    const { data: existente } = await supabase
+      .from('demandas')
+      .select('id')
+      .eq('protocolo', baseProtocolo);
+
+    if (existente && existente.length > 0) {
+      const sufixo = '-' + Date.now().toString().slice(-4);
+      baseProtocolo = baseProtocolo.slice(0, 30 - sufixo.length) + sufixo;
+    }
 
     const payload = {
-      protocolo: protocoloTratado,
+      protocolo: baseProtocolo,
       origem: origem || 'Rotina da Subsecretaria',
       tipo_fiscalizacao: tipo_fiscalizacao || 'Assistencial',
       grau_risco: grau_risco || 'Médio',
@@ -164,7 +174,6 @@ app.post('/api/demandas', async (req, res) => {
 
     if (esfera_gestao) payload.esfera_gestao = esfera_gestao;
     if (link_drive) payload.link_drive = link_drive.trim();
-
     if (numero_sei && typeof numero_sei === 'string' && numero_sei.trim() !== '') {
       payload.numero_sei = numero_sei.trim().slice(0, 30);
     }
@@ -174,7 +183,7 @@ app.post('/api/demandas', async (req, res) => {
       .insert([payload])
       .select();
 
-    // Fallback se a coluna link_drive ainda não existir na tabela
+    // Fallback se a coluna link_drive não existir no Supabase
     if (error && error.message && error.message.includes('link_drive')) {
       const linkAnexo = payload.link_drive;
       delete payload.link_drive;
@@ -213,7 +222,7 @@ app.post('/api/demandas', async (req, res) => {
   }
 });
 
-// Handler único e seguro para ATUALIZAR Demanda (com link_drive)
+// Handler para Atualizar Demanda
 const atualizarDemandaHandler = async (req, res) => {
   const { id } = req.params;
   const { 
@@ -264,7 +273,6 @@ const atualizarDemandaHandler = async (req, res) => {
       .eq('id', id)
       .select();
 
-    // Fallback se link_drive não existir na tabela
     if (error && error.message && error.message.includes('link_drive')) {
       const linkAnexo = payload.link_drive;
       delete payload.link_drive;
@@ -280,7 +288,6 @@ const atualizarDemandaHandler = async (req, res) => {
       error = fallback.error;
     }
 
-    // Fallback se esfera_gestao não existir
     if (error && error.message && error.message.includes('esfera_gestao')) {
       delete payload.esfera_gestao;
       const fallback = await supabase
@@ -309,7 +316,7 @@ app.put('/api/demandas/:id', atualizarDemandaHandler);
 app.patch('/api/demandas/:id', atualizarDemandaHandler);
 app.post('/api/demandas/:id', atualizarDemandaHandler);
 
-// Atualizar status individual da demanda
+// Atualizar status individual
 app.patch('/api/demandas/:id/status', async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
@@ -380,7 +387,7 @@ app.post('/api/demandas/:id/despachos', async (req, res) => {
   }
 });
 
-// Excluir demanda / visita
+// Excluir demanda
 app.delete('/api/demandas/:id', async (req, res) => {
   const { id } = req.params;
   try {
@@ -395,39 +402,6 @@ app.delete('/api/demandas/:id', async (req, res) => {
   } catch (err) {
     console.error('Erro ao excluir:', err);
     res.status(500).json({ error: err.message });
-  }
-});
-
-// ==========================================
-// ROTAS DA AGENDA DE CONTATOS (SIS-FISA)
-// ==========================================
-
-// Buscar todos os contatos
-app.get('/api/contatos', async (req, res) => {
-  try {
-    const { rows } = await pool.query(
-      'SELECT * FROM contatos WHERE ativo = true ORDER BY nome ASC'
-    );
-    res.json(rows);
-  } catch (err) {
-    console.error('Erro ao buscar contatos:', err);
-    res.status(500).json({ error: 'Erro ao buscar contatos' });
-  }
-});
-
-// Cadastrar novo contato
-app.post('/api/contatos', async (req, res) => {
-  const { nome, cargo, orgao_setor, categoria, telefone, ramal, email, observacoes } = req.body;
-  try {
-    const { rows } = await pool.query(
-      `INSERT INTO contatos (nome, cargo, orgao_setor, categoria, telefone, ramal, email, observacoes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-      [nome, cargo, orgao_setor, categoria, telefone, ramal, email, observacoes]
-    );
-    res.status(201).json(rows[0]);
-  } catch (err) {
-    console.error('Erro ao cadastrar contato:', err);
-    res.status(500).json({ error: 'Erro ao cadastrar contato' });
   }
 });
 
