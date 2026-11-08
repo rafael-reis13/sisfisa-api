@@ -88,8 +88,8 @@
         </div>
       </div>
 
-      <!-- Seletor de Módulos -->
-      <div class="flex items-center bg-sky-900 p-1 rounded-xl border border-sky-700">
+      <!-- Seletor de Módulos (Com a nova aba de Contatos) -->
+      <div class="flex items-center bg-sky-900 p-1 rounded-xl border border-sky-700 flex-wrap justify-center gap-1">
         <button 
           @click="mudarAba('fiscalizacoes')" 
           :class="abaAtiva === 'fiscalizacoes' ? 'bg-sky-600 text-white shadow' : 'text-sky-200 hover:text-white'"
@@ -113,6 +113,12 @@
           :class="abaAtiva === 'calendario' ? 'bg-sky-600 text-white shadow' : 'text-sky-200 hover:text-white'"
           class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5">
           <i class="fa-solid fa-calendar-days"></i> Calendário
+        </button>
+        <button 
+          @click="mudarAba('contatos')" 
+          :class="abaAtiva === 'contatos' ? 'bg-sky-600 text-white shadow' : 'text-sky-200 hover:text-white'"
+          class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5">
+          <i class="fa-solid fa-address-book"></i> Agenda
         </button>
       </div>
 
@@ -176,7 +182,7 @@
                   <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700" x-text="item.grau_risco"></span>
                 </div>
                 <p class="text-xs text-slate-600 truncate font-medium" x-text="item.unidade_nome || 'Unidade Geral'"></p>
-                <p class="text-[11px] text-slate-500 line-clamp-1 mt-0.5" x-text="item.descricao"></p>
+                <p class="text-[11px] text-slate-500 line-clamp-1 mt-0.5" x-text="limparTextoDescricao(item.descricao)"></p>
               </div>
 
               <div class="flex justify-between items-center mt-3 pt-2 border-t border-slate-100 text-xs">
@@ -291,7 +297,7 @@
                       x-text="d.status"></span>
                   </td>
                   
-                  <!-- ÍCONE DO GOOGLE DRIVE NA TABELA -->
+                  <!-- Ícone do Google Drive -->
                   <td class="p-4 text-center">
                     <template x-if="obterLinkDrive(d)">
                       <a :href="obterLinkDrive(d)" target="_blank" class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-sky-50 text-sky-700 hover:bg-sky-600 hover:text-white border border-sky-300 transition shadow-sm" title="Abrir pasta de fotos e laudos no Google Drive">
@@ -467,7 +473,7 @@
             </div>
           </div>
 
-          <div class="flex items-center gap-4 text-[11px] text-slate-500 mb-3 px-1">
+          <div class="flex items-center gap-4 text-[11px] text-slate-500 mb-3 px-1 flex-wrap">
             <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Feriados Oficiais (Nacional / RJ / Saquarema)</span>
             <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Reunião</span>
             <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Visita in loco</span>
@@ -595,6 +601,158 @@
       </div>
     </div>
 
+    <!-- ==================== ABA 5: AGENDA DE CONTATOS ==================== -->
+    <div x-show="abaAtiva === 'contatos'" x-cloak class="space-y-6">
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div>
+          <h2 class="font-bold text-lg text-slate-800 flex items-center gap-2">
+            <i class="fa-solid fa-address-book text-sky-700"></i> Agenda de Contatos Institucionais & Saúde
+          </h2>
+          <p class="text-xs text-slate-500">Direção hospitalar, coordenações de atenção básica, comissões de fiscalização e órgãos de controle</p>
+        </div>
+        <button @click="abrirModalNovoContato()" class="bg-sky-700 hover:bg-sky-600 text-white px-3.5 py-2 rounded-lg font-semibold text-xs sm:text-sm flex items-center transition shadow-sm">
+          <i class="fa-solid fa-user-plus mr-1.5"></i> Novo Contato
+        </button>
+      </div>
+
+      <!-- Barra de Filtros e Busca da Agenda -->
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+        <div class="flex flex-wrap gap-1.5 text-xs font-medium">
+          <button @click="filtroCategoriaContato = 'todos'" :class="filtroCategoriaContato === 'todos' ? 'bg-sky-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1.5 rounded-lg transition">Todos</button>
+          <button @click="filtroCategoriaContato = 'Direção Hospitalar'" :class="filtroCategoriaContato === 'Direção Hospitalar' ? 'bg-sky-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1.5 rounded-lg transition">Direção Hospitalar</button>
+          <button @click="filtroCategoriaContato = 'Atenção Básica'" :class="filtroCategoriaContato === 'Atenção Básica' ? 'bg-sky-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1.5 rounded-lg transition">Atenção Básica</button>
+          <button @click="filtroCategoriaContato = 'Órgãos de Controle'" :class="filtroCategoriaContato === 'Órgãos de Controle' ? 'bg-sky-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1.5 rounded-lg transition">Órgãos de Controle</button>
+          <button @click="filtroCategoriaContato = 'Organização Social'" :class="filtroCategoriaContato === 'Organização Social' ? 'bg-sky-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1.5 rounded-lg transition">Organização Social</button>
+        </div>
+
+        <div class="w-full sm:w-72 relative">
+          <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+          <input type="text" x-model="buscaContatos" placeholder="Pesquisar por nome, cargo ou órgão..." class="w-full pl-8 pr-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-sky-500">
+        </div>
+      </div>
+
+      <!-- Grade de Contatos -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <template x-for="c in contatosFiltrados" :key="c.id">
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition">
+            <div>
+              <div class="flex justify-between items-start gap-2 mb-2 pb-2 border-b">
+                <div>
+                  <h3 class="font-bold text-sm text-slate-800" x-text="c.nome"></h3>
+                  <p class="text-xs font-semibold text-sky-700" x-text="c.cargo"></p>
+                </div>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border" x-text="c.categoria"></span>
+              </div>
+
+              <div class="space-y-1.5 text-xs text-slate-600 mt-2">
+                <p class="font-medium text-slate-700 flex items-center gap-1.5">
+                  <i class="fa-solid fa-building text-slate-400 w-4"></i>
+                  <span x-text="c.orgao_unidade"></span>
+                </p>
+
+                <p x-show="c.telefone" class="flex items-center gap-1.5">
+                  <i class="fa-solid fa-phone text-slate-400 w-4"></i>
+                  <a :href="'tel:' + c.telefone" class="hover:text-sky-700 font-mono text-xs" x-text="c.telefone"></a>
+                </p>
+
+                <p x-show="c.email" class="flex items-center gap-1.5">
+                  <i class="fa-solid fa-envelope text-slate-400 w-4"></i>
+                  <a :href="'mailto:' + c.email" class="hover:text-sky-700 text-xs truncate max-w-[220px]" x-text="c.email"></a>
+                </p>
+
+                <p x-show="c.observacao" class="text-[11px] text-slate-500 italic mt-2 pt-2 border-t border-slate-100 line-clamp-2" x-text="c.observacao"></p>
+              </div>
+            </div>
+
+            <div class="flex justify-between items-center mt-4 pt-3 border-t border-slate-100 text-xs">
+              <div class="flex gap-2">
+                <template x-if="c.telefone">
+                  <a :href="'https://wa.me/55' + c.telefone.replace(/\D/g, '')" target="_blank" class="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-600 hover:text-white rounded-lg text-xs font-semibold transition flex items-center gap-1">
+                    <i class="fa-brands fa-whatsapp text-sm"></i> WhatsApp
+                  </a>
+                </template>
+              </div>
+
+              <div class="flex gap-2">
+                <button @click="iniciarEdicaoContato(c)" class="text-amber-700 hover:underline font-bold text-xs">Editar</button>
+                <button @click="excluirContato(c.id, c.nome)" class="text-rose-600 hover:underline font-bold text-xs">Excluir</button>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <template x-if="contatosFiltrados.length === 0">
+          <div class="col-span-full p-8 text-center bg-white rounded-xl border border-dashed border-slate-300 text-slate-500 text-xs">
+            <i class="fa-solid fa-address-book text-3xl mb-2 text-slate-300 block"></i>
+            Nenhum contato encontrado com os filtros selecionados.
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- MODAL: CADASTRAR / EDITAR CONTATO -->
+    <div x-show="abrirModalContato" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
+      <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto" @click.away="abrirModalContato = false">
+        <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
+          <span class="p-1.5 bg-sky-100 text-sky-800 rounded-lg text-sm"><i class="fa-solid fa-user-plus"></i></span>
+          <span x-text="editandoContatoId ? 'Editar Contato' : 'Cadastrar Novo Contato'"></span>
+        </h3>
+
+        <form @submit.prevent="salvarContato" class="space-y-4">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Nome Completo *</label>
+              <input type="text" x-model="formContato.nome" required placeholder="Ex: Dr. Carlos Eduardo" class="w-full border rounded px-3 py-1.5 text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Cargo / Função *</label>
+              <input type="text" x-model="formContato.cargo" required placeholder="Ex: Diretor Geral" class="w-full border rounded px-3 py-1.5 text-sm">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Órgão / Unidade de Saúde *</label>
+              <input type="text" x-model="formContato.orgao_unidade" required placeholder="Ex: Hospital Municipal" class="w-full border rounded px-3 py-1.5 text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Categoria *</label>
+              <select x-model="formContato.categoria" class="w-full border rounded px-3 py-1.5 text-sm bg-white">
+                <option value="Direção Hospitalar">Direção Hospitalar</option>
+                <option value="Atenção Básica">Atenção Básica</option>
+                <option value="Órgãos de Controle">Órgãos de Controle</option>
+                <option value="Organização Social">Organização Social</option>
+                <option value="Outros">Outros</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Telefone / Celular</label>
+              <input type="text" x-model="formContato.telefone" placeholder="Ex: (22) 99999-9999" class="w-full border rounded px-3 py-1.5 text-sm font-mono">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">E-mail Institucional</label>
+              <input type="email" x-model="formContato.email" placeholder="Ex: contato@saquarema.rj.gov.br" class="w-full border rounded px-3 py-1.5 text-sm">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Observações / Horário de Plantão</label>
+            <textarea x-model="formContato.observacao" rows="2" placeholder="Ex: Plantões às terças e quintas..." class="w-full border rounded px-3 py-1.5 text-sm"></textarea>
+          </div>
+
+          <div class="flex justify-end gap-2 pt-4 border-t">
+            <button type="button" @click="abrirModalContato = false" class="px-4 py-2 border rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
+            <button type="submit" class="px-4 py-2 bg-sky-700 text-white rounded-lg text-xs font-bold hover:bg-sky-600 flex items-center shadow">
+              <span x-text="editandoContatoId ? 'Atualizar Contato' : 'Salvar Contato'"></span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- MODAL: REGISTRAR / EDITAR VISITA IN LOCO -->
     <div x-show="abrirModalVisita" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
       <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto" @click.away="abrirModalVisita = false">
@@ -659,7 +817,7 @@
             </div>
           </div>
 
-          <!-- CAMPO DRIVE PARA VISITAS IN LOCO (TOTALMENTE OPCIONAL) -->
+          <!-- CAMPO DRIVE PARA VISITAS IN LOCO (OPCIONAL) -->
           <div class="bg-sky-50/70 p-3 rounded-lg border border-sky-200">
             <label class="block text-xs font-bold text-sky-950 mb-1 flex items-center gap-1.5">
               <i class="fa-brands fa-google-drive text-sky-700"></i> Pasta de Fotos e Documentos (Drive) <span class="text-[10px] font-normal text-slate-500">(opcional)</span>
@@ -748,7 +906,7 @@
       </div>
     </div>
 
-    <!-- MODAL DE CADASTRO OU EDIÇÃO DE DEMANDA (COM CAMPO GOOGLE DRIVE OPCIONAL) -->
+    <!-- MODAL DE CADASTRO OU EDIÇÃO DE DEMANDA (COM GOOGLE DRIVE OPCIONAL) -->
     <div x-show="abrirModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
       <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto" @click.away="abrirModal = false">
         
@@ -933,7 +1091,8 @@
                   :class="{
                     'bg-slate-200 text-slate-800 border border-slate-300': demandaVisualizada.status === 'Arquivada',
                     'bg-emerald-100 text-emerald-700': demandaVisualizada.status === 'Concluída',
-                    'bg-amber-100 text-amber-700': demandaVisualizada.status === 'Em andamento'
+                    'bg-amber-100 text-amber-700': demandaVisualizada.status === 'Em andamento',
+                    'bg-blue-100 text-blue-700': demandaVisualizada.status === 'Triagem'
                   }"
                   x-text="demandaVisualizada.status"></span>
               </div>
@@ -1471,6 +1630,7 @@
     </div>
   </div>
 
+  <!-- Script Alpine.js com Módulo de Contatos -->
   <script>
     const API_URL = 'https://sisfisa-api.onrender.com';
 
@@ -1481,6 +1641,7 @@
         abrirModalNovaReuniao: false,
         abrirModalVisita: false,
         abrirModalUnidade: false,
+        abrirModalContato: false,
         modalVisualizar: false,
         modalRelatorioMensal: false,
         modalDossieUnidade: false,
@@ -1489,6 +1650,7 @@
 
         editandoId: null,
         editandoCompromissoId: null,
+        editandoContatoId: null,
         demandaVisualizada: null,
         unidadeDossie: null,
 
@@ -1500,9 +1662,12 @@
         
         filtroRapido: 'todos',
         busca: '',
+        buscaContatos: '',
+        filtroCategoriaContato: 'todos',
         
         demandas: [],
         unidades: [],
+        contatos: [],
         toasts: [],
         
         dataCalendarioAtual: new Date(),
@@ -1563,6 +1728,16 @@
           tipo_unidade: 'Atenção Básica (ESF/UBS)'
         },
 
+        formContato: {
+          nome: '',
+          cargo: '',
+          orgao_unidade: '',
+          categoria: 'Direção Hospitalar',
+          telefone: '',
+          email: '',
+          observacao: ''
+        },
+
         mostrarToast(mensagem, tipo = 'sucesso') {
           const id = Date.now();
           this.toasts.push({ id, mensagem, tipo });
@@ -1582,6 +1757,7 @@
               this.carregarDemandas(),
               this.carregarUnidades()
             ]);
+            this.carregarContatosLocais();
           } finally {
             clearTimeout(timeoutId);
             this.conectandoRender = false;
@@ -1618,6 +1794,134 @@
           } catch (e) {
             console.error(e);
           }
+        },
+
+        // --- GESTÃO DE CONTATOS (Armazenamento Local) ---
+        carregarContatosLocais() {
+          const salvos = localStorage.getItem('sisfisa_contatos');
+          if (salvos) {
+            try {
+              this.contatos = JSON.parse(salvos);
+            } catch (e) {
+              this.contatos = [];
+            }
+          } else {
+            this.contatos = [
+              {
+                id: 1,
+                nome: "Direção Geral",
+                cargo: "Diretor Geral",
+                orgao_unidade: "Hospital Municipal Nossa Senhora de Nazareth",
+                categoria: "Direção Hospitalar",
+                telefone: "(22) 2651-2100",
+                email: "direcao.hmnsn@saquarema.rj.gov.br",
+                observacao: "Administração e Direção Geral da Unidade Hospitalar"
+              },
+              {
+                id: 2,
+                nome: "Coordenação Médica",
+                cargo: "Coordenador de Plantão",
+                orgao_unidade: "UPA 24h Saquarema",
+                categoria: "Direção Hospitalar",
+                telefone: "(22) 2651-1000",
+                email: "upa.saquarema@saquarema.rj.gov.br",
+                observacao: "Escalas médicas e atendimento de urgência"
+              },
+              {
+                id: 3,
+                nome: "Promotoria de Justiça de Tutela Coletiva",
+                cargo: "Secretaria Processual",
+                orgao_unidade: "Ministério Público do Estado do Rio de Janeiro",
+                categoria: "Órgãos de Controle",
+                telefone: "(22) 2651-1550",
+                email: "promotoria.saude@mprj.mp.br",
+                observacao: "Ofícios, inquéritos civis e fiscalizações conjuntas"
+              }
+            ];
+            this.salvarContatosStorage();
+          }
+        },
+
+        salvarContatosStorage() {
+          localStorage.setItem('sisfisa_contatos', JSON.stringify(this.contatos));
+        },
+
+        abrirModalNovoContato() {
+          this.editandoContatoId = null;
+          this.formContato = {
+            nome: '',
+            cargo: '',
+            orgao_unidade: '',
+            categoria: 'Direção Hospitalar',
+            telefone: '',
+            email: '',
+            observacao: ''
+          };
+          this.abrirModalContato = true;
+        },
+
+        iniciarEdicaoContato(c) {
+          this.editandoContatoId = c.id;
+          this.formContato = {
+            nome: c.nome,
+            cargo: c.cargo,
+            orgao_unidade: c.orgao_unidade,
+            categoria: c.categoria,
+            telefone: c.telefone || '',
+            email: c.email || '',
+            observacao: c.observacao || ''
+          };
+          this.abrirModalContato = true;
+        },
+
+        salvarContato() {
+          if (!this.formContato.nome || !this.formContato.cargo) {
+            this.mostrarToast('Preencha o nome e o cargo do contato.', 'erro');
+            return;
+          }
+
+          if (this.editandoContatoId) {
+            const idx = this.contatos.findIndex(c => c.id === this.editandoContatoId);
+            if (idx !== -1) {
+              this.contatos[idx] = { ...this.formContato, id: this.editandoContatoId };
+              this.mostrarToast(`Contato "${this.formContato.nome}" atualizado!`);
+            }
+          } else {
+            const novo = {
+              ...this.formContato,
+              id: Date.now()
+            };
+            this.contatos.unshift(novo);
+            this.mostrarToast(`Contato "${novo.nome}" cadastrado com sucesso!`);
+          }
+
+          this.salvarContatosStorage();
+          this.abrirModalContato = false;
+        },
+
+        excluirContato(id, nome) {
+          if (!confirm(`Deseja realmente excluir o contato "${nome}"?`)) return;
+          this.contatos = this.contatos.filter(c => c.id !== id);
+          this.salvarContatosStorage();
+          this.mostrarToast(`Contato "${nome}" removido!`);
+        },
+
+        get contatosFiltrados() {
+          let lista = this.contatos;
+
+          if (this.filtroCategoriaContato !== 'todos') {
+            lista = lista.filter(c => c.categoria === this.filtroCategoriaContato);
+          }
+
+          if (!this.buscaContatos) return lista;
+          const termo = this.buscaContatos.toLowerCase();
+          return lista.filter(c => 
+            (c.nome && c.nome.toLowerCase().includes(termo)) ||
+            (c.cargo && c.cargo.toLowerCase().includes(termo)) ||
+            (c.orgao_unidade && c.orgao_unidade.toLowerCase().includes(termo)) ||
+            (c.telefone && c.telefone.includes(termo)) ||
+            (c.email && c.email.toLowerCase().includes(termo))
+          );
         },
 
         // --- GOOGLE DRIVE: EXTRAÇÃO AUTOMÁTICA DE LINK ---
