@@ -407,22 +407,22 @@ app.get('/api/contatos', async (req, res) => {
   }
 });
 
-// Cadastrar novo contato
+// Cadastrar novo contato com tratamento de nulos
 app.post('/api/contatos', async (req, res) => {
   const { nome, cargo, orgao_unidade, categoria, telefone, email, observacao } = req.body;
   try {
     if (!nome || !cargo) {
-      return res.status(400).json({ error: 'Nome e cargo do contato são obrigatórios.' });
+      return res.status(400).json({ error: 'Nome e cargo são obrigatórios.' });
     }
 
     const payload = {
-      nome: nome.trim(),
-      cargo: cargo.trim(),
-      orgao_unidade: (orgao_unidade || '').trim(),
+      nome: String(nome).trim(),
+      cargo: String(cargo).trim(),
+      orgao_unidade: orgao_unidade ? String(orgao_unidade).trim() : null,
       categoria: categoria || 'Direção Hospitalar',
-      telefone: (telefone || '').trim(),
-      email: (email || '').trim(),
-      observacao: (observacao || '').trim()
+      telefone: telefone ? String(telefone).trim() : null,
+      email: email ? String(email).trim() : null,
+      observacao: observacao ? String(observacao).trim() : null
     };
 
     const { data, error } = await supabase
@@ -442,19 +442,19 @@ app.post('/api/contatos', async (req, res) => {
   }
 });
 
-// Atualizar contato
+// Atualizar contato com tratamento de nulos
 app.put('/api/contatos/:id', async (req, res) => {
   const { id } = req.params;
   const { nome, cargo, orgao_unidade, categoria, telefone, email, observacao } = req.body;
   try {
     const payload = {
-      nome: nome?.trim(),
-      cargo: cargo?.trim(),
-      orgao_unidade: orgao_unidade?.trim(),
-      categoria,
-      telefone: telefone?.trim(),
-      email: email?.trim(),
-      observacao: observacao?.trim()
+      nome: nome ? String(nome).trim() : undefined,
+      cargo: cargo ? String(cargo).trim() : undefined,
+      orgao_unidade: orgao_unidade ? String(orgao_unidade).trim() : null,
+      categoria: categoria || 'Direção Hospitalar',
+      telefone: telefone ? String(telefone).trim() : null,
+      email: email ? String(email).trim() : null,
+      observacao: observacao ? String(observacao).trim() : null
     };
 
     const { data, error } = await supabase
