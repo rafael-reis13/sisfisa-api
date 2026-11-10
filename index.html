@@ -88,7 +88,7 @@
         </div>
       </div>
 
-      <!-- Seletor de Módulos (Com a nova aba de Contatos) -->
+      <!-- Seletor de Módulos (Incluindo a Aba Agenda) -->
       <div class="flex items-center bg-sky-900 p-1 rounded-xl border border-sky-700 flex-wrap justify-center gap-1">
         <button 
           @click="mudarAba('fiscalizacoes')" 
@@ -1630,7 +1630,7 @@
     </div>
   </div>
 
-  <!-- Script Alpine.js com Módulo de Contatos -->
+  <!-- Script Alpine.js com Sincronização Híbrida (API + LocalStorage Fallback) -->
   <script>
     const API_URL = 'https://sisfisa-api.onrender.com';
 
@@ -1755,9 +1755,9 @@
           try {
             await Promise.all([
               this.carregarDemandas(),
-              this.carregarUnidades()
+              this.carregarUnidades(),
+              this.carregarContatos()
             ]);
-            this.carregarContatosLocais();
           } finally {
             clearTimeout(timeoutId);
             this.conectandoRender = false;
@@ -1796,8 +1796,23 @@
           }
         },
 
-        // --- GESTÃO DE CONTATOS (Armazenamento Local) ---
-        carregarContatosLocais() {
+        // --- GESTÃO DE CONTATOS (SINCRONIZAÇÃO EM NUVEM + FALLBACK LOCAL) ---
+        async carregarContatos() {
+          try {
+            const res = await fetch(`${API_URL}/api/contatos`);
+            if (res.ok) {
+              const dados = await res.json();
+              if (Array.isArray(dados) && dados.length > 0) {
+                this.contatos = dados;
+                localStorage.setItem('sisfisa_contatos', JSON.stringify(dados));
+                return;
+              }
+            }
+          } catch (e) {
+            console.log('API de contatos indisponível, usando armazenamento local.');
+          }
+
+          // Fallback Local
           const salvos = localStorage.getItem('sisfisa_contatos');
           if (salvos) {
             try {
@@ -1838,12 +1853,8 @@
                 observacao: "Ofícios, inquéritos civis e fiscalizações conjuntas"
               }
             ];
-            this.salvarContatosStorage();
+            localStorage.setItem('sisfisa_contatos', JSON.stringify(this.contatos));
           }
-        },
-
-        salvarContatosStorage() {
-          localStorage.setItem('sisfisa_contatos', JSON.stringify(this.contatos));
         },
 
         abrirModalNovoContato() {
@@ -1874,35 +1885,59 @@
           this.abrirModalContato = true;
         },
 
-        salvarContato() {
+        async salvarContato() {
           if (!this.formContato.nome || !this.formContato.cargo) {
             this.mostrarToast('Preencha o nome e o cargo do contato.', 'erro');
             return;
           }
 
-          if (this.editandoContatoId) {
-            const idx = this.contatos.findIndex(c => c.id === this.editandoContatoId);
-            if (idx !== -1) {
-              this.contatos[idx] = { ...this.formContato, id: this.editandoContatoId };
-              this.mostrarToast(`Contato "${this.formContato.nome}" atualizado!`);
+          let sincronizadoNuvem = false;
+          try {
+            const url = this.editandoContatoId 
+              ? `${API_URL}/api/contatos/${this.editandoContatoId}` 
+              : `${API_URL}/api/contatos`;
+            
+            const metodo = this.editandoContatoId ? 'PUT' : 'POST';
+
+            const res = await fetch(url, {
+              method: metodo,
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.formContato)
+            });
+
+            if (res.ok) {
+              sincronizadoNuvem = true;
+              await this.carregarContatos();
             }
-          } else {
-            const novo = {
-              ...this.formContato,
-              id: Date.now()
-            };
-            this.contatos.unshift(novo);
-            this.mostrarToast(`Contato "${novo.nome}" cadastrado com sucesso!`);
+          } catch (e) {
+            console.log('Falha ao salvar na API, persistindo localmente:', e);
           }
 
-          this.salvarContatosStorage();
+          if (!sincronizadoNuvem) {
+            if (this.editandoContatoId) {
+              const idx = this.contatos.findIndex(c => c.id === this.editandoContatoId);
+              if (idx !== -1) this.contatos[idx] = { ...this.formContato, id: this.editandoContatoId };
+            } else {
+              this.contatos.unshift({ ...this.formContato, id: Date.now() });
+            }
+            localStorage.setItem('sisfisa_contatos', JSON.stringify(this.contatos));
+          }
+
+          this.mostrarToast(this.editandoContatoId ? `Contato atualizado com sucesso!` : `Contato cadastrado com sucesso!`);
           this.abrirModalContato = false;
         },
 
-        excluirContato(id, nome) {
+        async excluirContato(id, nome) {
           if (!confirm(`Deseja realmente excluir o contato "${nome}"?`)) return;
+
+          try {
+            await fetch(`${API_URL}/api/contatos/${id}`, { method: 'DELETE' });
+          } catch (e) {
+            console.log('Falha ao excluir na API, removendo localmente:', e);
+          }
+
           this.contatos = this.contatos.filter(c => c.id !== id);
-          this.salvarContatosStorage();
+          localStorage.setItem('sisfisa_contatos', JSON.stringify(this.contatos));
           this.mostrarToast(`Contato "${nome}" removido!`);
         },
 
@@ -2250,10 +2285,8 @@
             const horaDefinida = this.formVisita.hora_apenas || '09:00';
             let descricaoFinal = this.formVisita.descricao || '';
             
-            // Grava a hora garantida no texto
             descricaoFinal = `[HORA: ${horaDefinida}]\n` + descricaoFinal;
 
-            // Anexa o link do Drive no texto para evitar erro de schema de banco
             if (this.formVisita.link_drive && this.formVisita.link_drive.trim() !== '') {
               descricaoFinal = `[DRIVE: ${this.formVisita.link_drive.trim()}]\n` + descricaoFinal;
             }
@@ -2442,7 +2475,6 @@
           try {
             let descricaoFinal = this.formDemanda.descricao || '';
             
-            // Anexa o link do Drive na descrição se houver, sem enviar como coluna direta
             if (this.formDemanda.link_drive && this.formDemanda.link_drive.trim() !== '') {
               descricaoFinal = `[DRIVE: ${this.formDemanda.link_drive.trim()}]\n` + descricaoFinal;
             }
