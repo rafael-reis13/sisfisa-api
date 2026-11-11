@@ -647,7 +647,7 @@
               <div class="space-y-1.5 text-xs text-slate-600 mt-2">
                 <p class="font-medium text-slate-700 flex items-center gap-1.5">
                   <i class="fa-solid fa-building text-slate-400 w-4"></i>
-                  <span x-text="c.orgao_unidade"></span>
+                  <span x-text="c.orgao_unidade || c.orgao_setor || 'Não informado'"></span>
                 </p>
 
                 <p x-show="c.telefone" class="flex items-center gap-1.5">
@@ -1732,6 +1732,7 @@
           nome: '',
           cargo: '',
           orgao_unidade: '',
+          orgao_setor: '',
           categoria: 'Direção Hospitalar',
           telefone: '',
           email: '',
@@ -1826,6 +1827,7 @@
             nome: '',
             cargo: '',
             orgao_unidade: '',
+            orgao_setor: '',
             categoria: 'Direção Hospitalar',
             telefone: '',
             email: '',
@@ -1836,10 +1838,12 @@
 
         iniciarEdicaoContato(c) {
           this.editandoContatoId = c.id;
+          const orgaoTexto = c.orgao_unidade || c.orgao_setor || '';
           this.formContato = {
             nome: c.nome,
             cargo: c.cargo,
-            orgao_unidade: c.orgao_unidade || '',
+            orgao_unidade: orgaoTexto,
+            orgao_setor: orgaoTexto,
             categoria: c.categoria || 'Direção Hospitalar',
             telefone: c.telefone || '',
             email: c.email || '',
@@ -1862,10 +1866,17 @@
             
             const metodo = this.editandoContatoId ? 'PUT' : 'POST';
 
+            const valorOrgao = (this.formContato.orgao_unidade || this.formContato.orgao_setor || 'Não informado').trim();
+            const payloadContato = {
+              ...this.formContato,
+              orgao_unidade: valorOrgao,
+              orgao_setor: valorOrgao
+            };
+
             const res = await fetch(url, {
               method: metodo,
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(this.formContato)
+              body: JSON.stringify(payloadContato)
             });
 
             if (!res.ok) {
@@ -1911,13 +1922,14 @@
 
           if (!this.buscaContatos) return lista;
           const termo = this.buscaContatos.toLowerCase();
-          return lista.filter(c => 
-            (c.nome && c.nome.toLowerCase().includes(termo)) ||
-            (c.cargo && c.cargo.toLowerCase().includes(termo)) ||
-            (c.orgao_unidade && c.orgao_unidade.toLowerCase().includes(termo)) ||
-            (c.telefone && c.telefone.includes(termo)) ||
-            (c.email && c.email.toLowerCase().includes(termo))
-          );
+          return lista.filter(c => {
+            const orgaoTexto = (c.orgao_unidade || c.orgao_setor || '').toLowerCase();
+            return (c.nome && c.nome.toLowerCase().includes(termo)) ||
+              (c.cargo && c.cargo.toLowerCase().includes(termo)) ||
+              orgaoTexto.includes(termo) ||
+              (c.telefone && c.telefone.includes(termo)) ||
+              (c.email && c.email.toLowerCase().includes(termo));
+          });
         },
 
         // --- GOOGLE DRIVE: EXTRAÇÃO AUTOMÁTICA DE LINK ---
