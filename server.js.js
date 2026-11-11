@@ -383,9 +383,9 @@ app.delete('/api/unidades/:id', async (req, res) => {
   }
 });
 
-// ==========================================
-// 3. ROTAS DE CONTATOS (SINCRONIZAÇÃO NUVEM)
-// ==========================================
+// ==============================================================
+// 3. ROTAS DE CONTATOS (BLINDADAS CONTRA ERROS DE COLUNAS/NULOS)
+// ==============================================================
 
 // Listar todos os contatos
 app.get('/api/contatos', async (req, res) => {
@@ -400,35 +400,63 @@ app.get('/api/contatos', async (req, res) => {
       return res.status(500).json({ error: error.message });
     }
 
-    res.json(data || []);
+    // Normaliza para o frontend receber orgao_unidade e orgao_setor consistentes
+    const contatosTratados = (data || []).map(c => {
+      const orgao = c.orgao_unidade || c.orgao_setor || '';
+      return {
+        ...c,
+        orgao_unidade: orgao,
+        orgao_setor: orgao
+      };
+    });
+
+    res.json(contatosTratados);
   } catch (err) {
     console.error('Erro interno GET /contatos:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Cadastrar novo contato com tratamento de nulos
+// Cadastrar novo contato (Preenche orgao_setor e orgao_unidade para evitar NOT NULL)
 app.post('/api/contatos', async (req, res) => {
-  const { nome, cargo, orgao_unidade, categoria, telefone, email, observacao } = req.body;
+  const { nome, cargo, orgao_unidade, orgao_setor, categoria, telefone, email, observacao } = req.body;
   try {
     if (!nome || !cargo) {
       return res.status(400).json({ error: 'Nome e cargo são obrigatórios.' });
     }
 
+    const valorOrgao = (orgao_unidade || orgao_setor || 'Não informado').trim();
+
     const payload = {
       nome: String(nome).trim(),
       cargo: String(cargo).trim(),
-      orgao_unidade: orgao_unidade ? String(orgao_unidade).trim() : null,
+      orgao_setor: valorOrgao,
+      orgao_unidade: valorOrgao,
       categoria: categoria || 'Direção Hospitalar',
       telefone: telefone ? String(telefone).trim() : null,
       email: email ? String(email).trim() : null,
       observacao: observacao ? String(observacao).trim() : null
     };
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('contatos')
       .insert([payload])
       .select();
+
+    // Se o banco não tiver a coluna orgao_unidade, tenta só com orgao_setor
+    if (error && error.message && error.message.includes('orgao_unidade')) {
+      delete payload.orgao_unidade;
+      const retry = await supabase.from('contatos').insert([payload]).select();
+      data = retry.data;
+      error = retry.error;
+    }
+    // Se o banco não tiver a coluna orgao_setor, tenta só com orgao_unidade
+    else if (error && error.message && error.message.includes('orgao_setor')) {
+      delete payload.orgao_setor;
+      const retry = await supabase.from('contatos').insert([payload]).select();
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
       console.error('Erro Supabase POST /contatos:', error);
@@ -442,26 +470,41 @@ app.post('/api/contatos', async (req, res) => {
   }
 });
 
-// Atualizar contato com tratamento de nulos
+// Atualizar contato existente
 app.put('/api/contatos/:id', async (req, res) => {
   const { id } = req.params;
-  const { nome, cargo, orgao_unidade, categoria, telefone, email, observacao } = req.body;
+  const { nome, cargo, orgao_unidade, orgao_setor, categoria, telefone, email, observacao } = req.body;
   try {
+    const valorOrgao = (orgao_unidade || orgao_setor || 'Não informado').trim();
+
     const payload = {
       nome: nome ? String(nome).trim() : undefined,
       cargo: cargo ? String(cargo).trim() : undefined,
-      orgao_unidade: orgao_unidade ? String(orgao_unidade).trim() : null,
+      orgao_setor: valorOrgao,
+      orgao_unidade: valorOrgao,
       categoria: categoria || 'Direção Hospitalar',
       telefone: telefone ? String(telefone).trim() : null,
       email: email ? String(email).trim() : null,
       observacao: observacao ? String(observacao).trim() : null
     };
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('contatos')
       .update(payload)
       .eq('id', id)
       .select();
+
+    if (error && error.message && error.message.includes('orgao_unidade')) {
+      delete payload.orgao_unidade;
+      const retry = await supabase.from('contatos').update(payload).eq('id', id).select();
+      data = retry.data;
+      error = retry.error;
+    } else if (error && error.message && error.message.includes('orgao_setor')) {
+      delete payload.orgao_setor;
+      const retry = await supabase.from('contatos').update(payload).eq('id', id).select();
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
       console.error('Erro Supabase PUT /contatos:', error);
