@@ -1796,64 +1796,27 @@
           }
         },
 
-        // --- GESTÃO DE CONTATOS (SINCRONIZAÇÃO EM NUVEM + FALLBACK LOCAL) ---
+        // --- GESTÃO DE CONTATOS (SINCRONIZAÇÃO DIRETA NA NUVEM VIA SUPABASE/RENDER) ---
         async carregarContatos() {
           try {
             const res = await fetch(`${API_URL}/api/contatos`);
-            if (res.ok) {
-              const dados = await res.json();
-              if (Array.isArray(dados) && dados.length > 0) {
-                this.contatos = dados;
-                localStorage.setItem('sisfisa_contatos', JSON.stringify(dados));
-                return;
-              }
+            if (!res.ok) throw new Error('Status ' + res.status);
+            const dados = await res.json();
+            if (Array.isArray(dados)) {
+              this.contatos = dados;
+              localStorage.setItem('sisfisa_contatos', JSON.stringify(dados));
+              return;
             }
           } catch (e) {
-            console.log('API de contatos indisponível, usando armazenamento local.');
-          }
-
-          // Fallback Local
-          const salvos = localStorage.getItem('sisfisa_contatos');
-          if (salvos) {
-            try {
-              this.contatos = JSON.parse(salvos);
-            } catch (e) {
-              this.contatos = [];
-            }
-          } else {
-            this.contatos = [
-              {
-                id: 1,
-                nome: "Direção Geral",
-                cargo: "Diretor Geral",
-                orgao_unidade: "Hospital Municipal Nossa Senhora de Nazareth",
-                categoria: "Direção Hospitalar",
-                telefone: "(22) 2651-2100",
-                email: "direcao.hmnsn@saquarema.rj.gov.br",
-                observacao: "Administração e Direção Geral da Unidade Hospitalar"
-              },
-              {
-                id: 2,
-                nome: "Coordenação Médica",
-                cargo: "Coordenador de Plantão",
-                orgao_unidade: "UPA 24h Saquarema",
-                categoria: "Direção Hospitalar",
-                telefone: "(22) 2651-1000",
-                email: "upa.saquarema@saquarema.rj.gov.br",
-                observacao: "Escalas médicas e atendimento de urgência"
-              },
-              {
-                id: 3,
-                nome: "Promotoria de Justiça de Tutela Coletiva",
-                cargo: "Secretaria Processual",
-                orgao_unidade: "Ministério Público do Estado do Rio de Janeiro",
-                categoria: "Órgãos de Controle",
-                telefone: "(22) 2651-1550",
-                email: "promotoria.saude@mprj.mp.br",
-                observacao: "Ofícios, inquéritos civis e fiscalizações conjuntas"
+            console.warn('API de contatos indisponível, a tentar recuperar cache local:', e);
+            const salvos = localStorage.getItem('sisfisa_contatos');
+            if (salvos) {
+              try {
+                this.contatos = JSON.parse(salvos);
+              } catch (err) {
+                this.contatos = [];
               }
-            ];
-            localStorage.setItem('sisfisa_contatos', JSON.stringify(this.contatos));
+            }
           }
         },
 
@@ -1876,8 +1839,8 @@
           this.formContato = {
             nome: c.nome,
             cargo: c.cargo,
-            orgao_unidade: c.orgao_unidade,
-            categoria: c.categoria,
+            orgao_unidade: c.orgao_unidade || '',
+            categoria: c.categoria || 'Direção Hospitalar',
             telefone: c.telefone || '',
             email: c.email || '',
             observacao: c.observacao || ''
@@ -1891,7 +1854,7 @@
             return;
           }
 
-          let sincronizadoNuvem = false;
+          this.salvando = true;
           try {
             const url = this.editandoContatoId 
               ? `${API_URL}/api/contatos/${this.editandoContatoId}` 
@@ -1905,40 +1868,38 @@
               body: JSON.stringify(this.formContato)
             });
 
-            if (res.ok) {
-              sincronizadoNuvem = true;
-              await this.carregarContatos();
+            if (!res.ok) {
+              const erroJson = await res.json().catch(() => ({}));
+              throw new Error(erroJson.error || `Erro ${res.status}: Não foi possível salvar na nuvem.`);
             }
-          } catch (e) {
-            console.log('Falha ao salvar na API, persistindo localmente:', e);
-          }
 
-          if (!sincronizadoNuvem) {
-            if (this.editandoContatoId) {
-              const idx = this.contatos.findIndex(c => c.id === this.editandoContatoId);
-              if (idx !== -1) this.contatos[idx] = { ...this.formContato, id: this.editandoContatoId };
-            } else {
-              this.contatos.unshift({ ...this.formContato, id: Date.now() });
-            }
-            localStorage.setItem('sisfisa_contatos', JSON.stringify(this.contatos));
+            await this.carregarContatos();
+            this.mostrarToast(this.editandoContatoId ? 'Contato atualizado na nuvem!' : 'Contato salvo e sincronizado para todos!');
+            this.abrirModalContato = false;
+          } catch (err) {
+            console.error('Erro ao salvar contato na nuvem:', err);
+            this.mostrarToast(err.message, 'erro');
+          } finally {
+            this.salvando = false;
           }
-
-          this.mostrarToast(this.editandoContatoId ? `Contato atualizado com sucesso!` : `Contato cadastrado com sucesso!`);
-          this.abrirModalContato = false;
         },
 
         async excluirContato(id, nome) {
-          if (!confirm(`Deseja realmente excluir o contato "${nome}"?`)) return;
+          if (!confirm(`Deseja realmente excluir permanentemente o contato "${nome}"?`)) return;
 
           try {
-            await fetch(`${API_URL}/api/contatos/${id}`, { method: 'DELETE' });
-          } catch (e) {
-            console.log('Falha ao excluir na API, removendo localmente:', e);
-          }
+            const res = await fetch(`${API_URL}/api/contatos/${id}`, { method: 'DELETE' });
+            if (!res.ok) {
+              const erroJson = await res.json().catch(() => ({}));
+              throw new Error(erroJson.error || 'Não foi possível excluir o contato da nuvem.');
+            }
 
-          this.contatos = this.contatos.filter(c => c.id !== id);
-          localStorage.setItem('sisfisa_contatos', JSON.stringify(this.contatos));
-          this.mostrarToast(`Contato "${nome}" removido!`);
+            await this.carregarContatos();
+            this.mostrarToast(`Contato "${nome}" removido da nuvem com sucesso!`);
+          } catch (err) {
+            console.error('Erro ao excluir contato:', err);
+            this.mostrarToast(err.message, 'erro');
+          }
         },
 
         get contatosFiltrados() {
